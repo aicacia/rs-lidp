@@ -1,0 +1,6 @@
+/.cargo/config.toml
+/.github
+/.vscode
+/helm
+/target
+**/Dockerfile*

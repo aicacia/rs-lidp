@@ -1,0 +1,41 @@
+[package]
+name = "key"
+version = "0.1.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Keys"
+
+[lib]
+name = "key"
+
+[features]
+default = ["std"]
+std = [
+    "thiserror/std",
+    "bip32/std",
+    "bip39/std",
+    "k256/std",
+    "getrandom/std",
+    "zeroize/std",
+]
+
+[dependencies]
+# Cryptography
+ripemd = { version = "0.2", default-features = false, features = [] }
+bip32 = { version = "0.5", default-features = false, features = [
+    "bip39",
+    "secp256k1",
+] }
+bip39 = { version = "2.2", default-features = false, features = [] }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+
+# Error Handling
+thiserror = { version = "2.0", default-features = false, features = [] }
+
+# Utils
+getrandom = { version = "0.4", default-features = false, features = [] }
+zeroize = { version = "1.9", default-features = false, features = [] }

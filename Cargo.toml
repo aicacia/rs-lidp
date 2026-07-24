@@ -1,0 +1,168 @@
+[package]
+name = "lidp"
+description = "Local First OIDC / OAuth 2.x implementation"
+repository = "https://github.com/aicacia/rs-oauth"
+rust-version = "1.97"
+edition = "2024"
+
+[package.version]
+workspace = true
+
+[package.authors]
+workspace = true
+
+[package.license]
+workspace = true
+
+[features]
+default = ["completions", "swagger-ui"]
+completions = ["cli/completions"]
+swagger-ui = ["utoipa-swagger-ui"]
+
+[lib]
+name = "lidp"
+
+[dependencies]
+# CLI
+dotenvy = { version = "0.15", default-features = false, features = [
+] }
+clap = { version = "4.6", default-features = false, features = [
+  "std",
+  "derive",
+  "help",
+] }
+cli = { path = "./crates/cli", default-features = false, features = [
+] }
+
+# Internal
+api = { path = "./crates/api", default-features = false, features = [] }
+db = { path = "./crates/db", default-features = false, features = ["migrate", "remote"] }
+model = { path = "./crates/model", default-features = false, features = ["migrate"] }
+lidp-http-server = { path = "./crates/lidp-http-server", default-features = false, features = ["remote"] }
+service = { path = "./crates/service", default-features = false, features = ["std"] }
+
+# Database`
+libsql = { version = "0.9", default-features = false, features = [] }
+
+# Serialization
+serde = { version = "1.0", default-features = false, features = [
+  "derive",
+  "std",
+] }
+serde_json = { version = "1.0", default-features = false, features = ["std"] }
+
+# Utilities
+config = { version = "0.15", features = ["yaml"], default-features = false }
+
+# Web
+axum = { version = "0.8", default-features = false, features = [
+  "http1",
+  "http2",
+  "form",
+  "query",
+  "json",
+  "tokio",
+] }
+tower-http = { version = "0.7", features = [
+  "cors",
+  "trace",
+  "compression-gzip",
+], default-features = false }
+utoipa = { version = "5.5", default-features = false, features = ["macros"] }
+utoipa-axum = { version = "0.2", default-features = false, features = [] }
+utoipa-swagger-ui = { version = "9.0", default-features = false, features = ["axum"], optional = true }
+
+# Async
+tokio = { version = "1.52", default-features = false, features = [
+  "macros",
+  "rt-multi-thread",
+] }
+tokio-util = { version = "0.7", default-features = false, features = [
+] }
+
+# Logging
+log = { version = "0.4", default-features = false, features = ["std"] }
+env_logger = { version = "0.10", default-features = false, features = [] }
+
+[dev-dependencies]
+
+[workspace]
+members = [
+    "crates/db",
+    "crates/cli",
+    "crates/api",
+    "crates/key",
+    "crates/model",
+    "crates/lidp-http-server",
+    "crates/service",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["nathanfaucett@gmail.com"]
+license = "MIT OR Apache-2.0"
+rust-version = "1.97"
+repository = "https://github.com/aicacia/rs-oauth"
+
+[workspace.lints.rust]
+ambiguous_negative_literals = "warn"
+missing_debug_implementations = "warn"
+redundant_imports = "warn"
+redundant_lifetimes = "warn"
+trivial_numeric_casts = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unused_lifetimes = "warn"
+
+[workspace.lints.clippy]
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# These lints are from the `restriction` lint group and prevent specific
+# constructs being used in source code in order to drive up consistency,
+# quality, and brevity
+allow_attributes_without_reason = "warn"
+as_pointer_underscore = "warn"
+assertions_on_result_states = "warn"
+clone_on_ref_ptr = "warn"
+deref_by_slicing = "warn"
+disallowed_script_idents = "warn"
+empty_drop = "warn"
+empty_enum_variants_with_brackets = "warn"
+empty_structs_with_brackets = "warn"
+fn_to_numeric_cast_any = "warn"
+if_then_some_else_none = "warn"
+map_err_ignore = "warn"
+redundant_type_annotations = "warn"
+renamed_function_params = "warn"
+semicolon_outside_block = "warn"
+string_to_string = "warn"
+undocumented_unsafe_blocks = "warn"
+unnecessary_safety_comment = "warn"
+unnecessary_safety_doc = "warn"
+unneeded_field_pattern = "warn"
+unused_result_ok = "warn"
+absolute_paths = "warn"
+redundant_clone = "warn"
+
+# May cause issues with structured logging otherwise.
+literal_string_with_formatting_args = "allow"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true

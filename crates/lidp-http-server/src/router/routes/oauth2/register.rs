@@ -1,0 +1,70 @@
+use axum::{
+    Json,
+    extract::{Path, State},
+};
+use model::contract::{ClientRegistration, ErrorResponse};
+
+use crate::router::RouterState;
+
+#[utoipa::path(
+    post,
+    path = "/oauth2/register",
+    request_body = ClientRegistration,
+    responses((status = 201, description = "Register client", body = ClientRegistration))
+)]
+pub(crate) async fn register(
+    State(state): State<RouterState>,
+    Json(body): Json<ClientRegistration>,
+) -> Result<Json<ClientRegistration>, ErrorResponse> {
+    let response = state.oauth2_service.register_client(body).await?;
+    Ok(Json(response))
+}
+
+#[utoipa::path(
+    get,
+    path = "/oauth2/register/{client_id}",
+    params(
+        ("client_id" = String, Path, description = "Client ID")
+    ),
+    responses((status = 200, description = "Get client", body = ClientRegistration))
+)]
+pub(crate) async fn get_register(
+    State(state): State<RouterState>,
+    Path(client_id): Path<String>,
+) -> Result<Json<ClientRegistration>, ErrorResponse> {
+    let response = state.oauth2_service.get_client(&client_id).await?;
+    Ok(Json(response))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/oauth2/register/{client_id}",
+    params(
+        ("client_id" = String, Path, description = "Client ID")
+    ),
+    responses((status = 204, description = "Delete client"))
+)]
+pub(crate) async fn delete_register(
+    State(state): State<RouterState>,
+    Path(client_id): Path<String>,
+) -> Result<(), ErrorResponse> {
+    state.oauth2_service.delete_client(&client_id).await
+}
+
+#[utoipa::path(
+    put,
+    path = "/oauth2/register/{client_id}",
+    params(
+        ("client_id" = String, Path, description = "Client ID")
+    ),
+    request_body = ClientRegistration,
+    responses((status = 200, description = "Update client", body = ClientRegistration))
+)]
+pub(crate) async fn put_register(
+    State(state): State<RouterState>,
+    Path(client_id): Path<String>,
+    Json(body): Json<ClientRegistration>,
+) -> Result<Json<ClientRegistration>, ErrorResponse> {
+    let response = state.oauth2_service.update_client(&client_id, body).await?;
+    Ok(Json(response))
+}

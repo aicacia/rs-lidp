@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r run test",
+    "coverage": "pnpm -r run coverage",
+    "lint": "pnpm -r run lint",
+    "lint:fix": "pnpm -r run lint:fix",
+    "format": "pnpm -r run format",
+    "format:fix": "pnpm -r run format:fix",
+    "apps:dev": "pnpm --filter \"./apps/*\" run dev",
+    "apps:build": "pnpm --filter \"./apps/*\" run build",
+    "packages:build": "pnpm --filter \"./packages/*\" run build",
+    "openapi": "pnpm --filter \"./packages/lidp-client\" run openapi"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.3",
+    "portless": "^0.15.4"
+  }
+}

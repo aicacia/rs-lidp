@@ -1,0 +1,37 @@
+[package]
+name = "cli"
+version = "0.1.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "OAuth 2.x CLI"
+
+[lib]
+name = "cli"
+
+[features]
+default = ["std", "completions"]
+std = ["clap/std", "log/std"]
+completions = ["clap_complete"]
+
+[dependencies]
+# CLI
+clap = { version = "4.6", default-features = false, features = [
+] }
+clap_complete = { version = "4.5", default-features = false, features = [
+], optional = true }
+
+# Web
+axum = { version = "0.8", default-features = false, features = [] }
+
+# Async
+tokio = { version = "1.52", default-features = false, features = ["signal", "macros"] }
+tokio-util = { version = "0.7", default-features = false, features = [] }
+
+# Utilies
+log = { version = "0.4", default-features = false, features = [] }
+
+[dev-dependencies]

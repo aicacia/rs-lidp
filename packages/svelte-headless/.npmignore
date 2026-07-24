@@ -1,0 +1,37 @@
+# Source and dev-only content (package.json uses "files" to include only dist)
+src/
+static/
+build/
+.svelte-kit/
+coverage/
+node_modules/
+
+# Tests and examples
+**/*.test.*
+**/*.spec.*
+test/
+tests/
+example/
+examples/
+
+# Editor and local configs
+.vscode/
+.idea/
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Project config files not needed in the published package
+pnpm-workspace.yaml
+vite.config.*
+svelte.config.*
+tsconfig.json
+tsconfig.*.json

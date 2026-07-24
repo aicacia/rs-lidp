@@ -1,0 +1,818 @@
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+
+use chrono::{Duration, Utc};
+use model::contract::{
+    AccessToken, AuthorizationCodeResponse, AuthorizationRequest, AuthorizationServerMetadata,
+    ClientRegistration, ClientType, DeviceAuthorization, DeviceAuthorizationRequest, EntityType,
+    ErrorCode, ErrorResponse, ErrorResponseResult, GrantType, IdToken, IdTokenClaims, JwkPublic,
+    Jwks, OAuth2ClientAuth, RefreshToken, RevocationRequest, StandardClaims, SubjectTokenType,
+    TokenRequest, TokenResponse, TokenType, TokenUse, UserInfo,
+};
+use model::model::Client;
+
+use crate::{
+    oauth2::{Principal, UserPrincipal, decode_jwt, encode_jwt},
+    repo::{ClientRepo, KeyRepo, MasterKeyRepo, OAuth2AuthorizationCodeRepo, UserRepo},
+    util::{generate_random_string, verify_password},
+};
+
+use super::{
+    OAuth2Config, intersect_scopes, parse_scopes, resolve_redirect_uri,
+    validate_authorization_code_grant, validate_authorization_request, verify_code_challenge,
+};
+
+pub struct OAuth2Service<C, K, A, U, M> {
+    pub client_repo: C,
+    pub key_repo: K,
+    pub authorization_code_repo: A,
+    pub master_key_repo: M,
+    pub user_repo: U,
+    pub oauth_config: OAuth2Config,
+    pub master_key_name: String,
+}
+
+impl<C, K, A, U, M> OAuth2Service<C, K, A, U, M>
+where
+    C: ClientRepo,
+    K: KeyRepo,
+    A: OAuth2AuthorizationCodeRepo,
+    U: UserRepo,
+    M: MasterKeyRepo,
+{
+    pub fn new(
+        client_repo: C,
+        key_repo: K,
+        authorization_code_repo: A,
+        user_repo: U,
+        master_key_repo: M,
+        oauth_config: OAuth2Config,
+        master_key_name: String,
+    ) -> Self {
+        Self {
+            client_repo,
+            key_repo,
+            authorization_code_repo,
+            user_repo,
+            master_key_repo,
+            oauth_config,
+            master_key_name,
+        }
+    }
+
+    pub async fn register_client(
+        &self,
+        request: ClientRegistration,
+    ) -> ErrorResponseResult<ClientRegistration> {
+        let client = ClientRegistration {
+            client_id: Some(
+                request
+                    .client_id
+                    .unwrap_or_else(|| generate_random_string::<32>()),
+            ),
+            client_secret: Some(
+                request
+                    .client_secret
+                    .unwrap_or_else(|| generate_random_string::<32>()),
+            ),
+            ..request
+        };
+
+        let client = self
+            .client_repo
+            .create_client(client)
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        Ok(client.into())
+    }
+
+    pub async fn get_client(&self, client_id: &str) -> ErrorResponseResult<ClientRegistration> {
+        let client = self
+            .client_repo
+            .find_client_by_client_id(client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+        Ok(client.into())
+    }
+
+    pub async fn update_client(
+        &self,
+        client_id: &str,
+        request: ClientRegistration,
+    ) -> ErrorResponseResult<ClientRegistration> {
+        let existing = self
+            .client_repo
+            .find_client_by_client_id(client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+
+        let now = Utc::now();
+        let client = Client {
+            id: existing.id,
+            client_id: existing.client_id,
+            client_secret: request.client_secret.unwrap_or(existing.client_secret),
+            client_id_issued_at: existing.client_id_issued_at,
+            client_secret_expires_at: request
+                .client_secret_expires_at
+                .and_then(|ts| chrono::DateTime::from_timestamp(ts, 0))
+                .or(existing.client_secret_expires_at),
+            client_name: request.client_name,
+            client_uri: request.client_uri.unwrap_or(existing.client_uri),
+            redirect_uris: request.redirect_uris,
+            client_type: request.client_type,
+            profile: request.profile,
+            token_endpoint_auth_method: request.token_endpoint_auth_method,
+            allowed_grant_types: request.allowed_grant_types,
+            response_types: request.response_types,
+            allowed_scopes: request.allowed_scopes,
+            logo_uri: request.logo_uri,
+            contacts: request.contacts,
+            terms_of_service_uri: request.terms_of_service_uri,
+            policy_uri: request.policy_uri,
+            software_statement: request.software_statement,
+            software_id: request.software_id,
+            software_version: request.software_version,
+            created_at: existing.created_at,
+            updated_at: now,
+        };
+
+        let client = self
+            .client_repo
+            .update_client(client)
+            .await
+            .map_err(ErrorResponse::from)?;
+        Ok(client.into())
+    }
+
+    pub async fn delete_client(&self, client_id: &str) -> ErrorResponseResult<()> {
+        self.client_repo
+            .delete_client_by_client_id(client_id)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn authorize<PT: Principal + ?Sized>(
+        &self,
+        request: AuthorizationRequest,
+        principal: &PT,
+    ) -> ErrorResponseResult<AuthorizationCodeResponse> {
+        let client = self
+            .client_repo
+            .find_client_by_client_id(&request.client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+
+        validate_authorization_request(&request, &client, self.oauth_config.require_pkce)?;
+        let redirect_uri = resolve_redirect_uri(&request, &client)?;
+        let requested_scopes = request
+            .scope
+            .as_deref()
+            .map(parse_scopes)
+            .unwrap_or_default();
+        let scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+
+        let authorization_code = self
+            .authorization_code_repo
+            .create_authorization_code(
+                client.client_id,
+                principal.get_key().id,
+                redirect_uri,
+                scopes,
+                request.resource,
+                request.code_challenge,
+                request.code_challenge_method,
+                request.nonce,
+                Utc::now()
+                    + Duration::seconds(self.oauth_config.authorization_code_ttl_secs as i64),
+            )
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        Ok(AuthorizationCodeResponse::Success {
+            code: authorization_code.code,
+            state: request.state,
+            issuer: Some(self.oauth_config.issuer.clone()),
+        })
+    }
+
+    pub async fn token(
+        &self,
+        request: TokenRequest,
+        client_auth: Option<OAuth2ClientAuth>,
+    ) -> ErrorResponseResult<TokenResponse> {
+        match request {
+            TokenRequest::Password(request) => {
+                let client = self
+                    .client_repo
+                    .find_client_by_client_id(&request.client_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidClient)
+                            .with_description("client not found")
+                    })?;
+                self.validate_grant_type(&client, GrantType::Password)?;
+                self.authenticate_client_for_token_endpoint(&client, client_auth.as_ref())?;
+
+                let user = self
+                    .user_repo
+                    .find_user_by_username_or_email(&request.username)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("user not found")
+                    })?;
+
+                let user_password = self
+                    .user_repo
+                    .find_user_password_by_user_id(user.id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("user password not found")
+                    })?;
+
+                let verified_password = verify_password(
+                    &request.password,
+                    &user_password.password_hash,
+                )
+                .map_err(|e| {
+                    ErrorResponse::new(ErrorCode::ServerError).with_description(e.to_string())
+                })?;
+
+                if !verified_password {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("invalid username or password"));
+                }
+
+                let key = self
+                    .key_repo
+                    .active_by_entity_type_and_id(EntityType::User, user.id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("user key not found")
+                    })?;
+
+                let principal = self
+                    .find_principal(key.id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("principal not found for user")
+                    })?;
+
+                let requested_scopes = request
+                    .scope
+                    .as_deref()
+                    .map(parse_scopes)
+                    .unwrap_or_default();
+                let scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+
+                self.issue_tokens_for_client(
+                    &client,
+                    principal.as_ref(),
+                    &scopes,
+                    request.resource.as_deref(),
+                )
+                .await
+            }
+            TokenRequest::AuthorizationCode(request) => {
+                let now = Utc::now();
+                let authorization_code = self
+                    .authorization_code_repo
+                    .find_authorization_code_by_code(&request.code)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("authorization code not found")
+                    })?;
+
+                if authorization_code.consumed_at.is_some() {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("authorization code already consumed"));
+                }
+
+                if authorization_code.expires_at < now {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("authorization code expired"));
+                }
+
+                let principal = self
+                    .find_principal(authorization_code.key_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("principal not found for authorization code")
+                    })?;
+
+                let client = self
+                    .client_repo
+                    .find_client_by_client_id(&authorization_code.client_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidClient)
+                            .with_description("client not found")
+                    })?;
+                self.validate_grant_type(&client, GrantType::AuthorizationCode)?;
+                self.authenticate_client_for_token_endpoint(&client, client_auth.as_ref())?;
+
+                validate_authorization_code_grant(
+                    &request,
+                    &authorization_code.client_id,
+                    Some(&authorization_code.redirect_uri),
+                )?;
+
+                if let Some(code_challenge) = &authorization_code.code_challenge {
+                    verify_code_challenge(
+                        &request.code_verifier,
+                        code_challenge,
+                        authorization_code.code_challenge_method.ok_or_else(|| {
+                            ErrorResponse::new(ErrorCode::InvalidGrant).with_description(
+                                "code_challenge_method is required when code_challenge is present",
+                            )
+                        })?,
+                    )?;
+                }
+
+                self.authorization_code_repo
+                    .consume_authorization_code(authorization_code.id, now)
+                    .await
+                    .map_err(ErrorResponse::from)?;
+
+                self.issue_tokens_for_client(
+                    &client,
+                    principal.as_ref(),
+                    &authorization_code.scopes,
+                    authorization_code.resource.as_deref(),
+                )
+                .await
+            }
+            TokenRequest::ClientCredentials(request) => {
+                let auth = client_auth.as_ref().ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::InvalidClient)
+                        .with_description("client authentication is required")
+                })?;
+
+                let client = self
+                    .client_repo
+                    .find_client_by_client_id(&auth.client_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidClient)
+                            .with_description("client not found")
+                    })?;
+                self.validate_grant_type(&client, GrantType::ClientCredentials)?;
+                self.authenticate_client_for_token_endpoint(&client, Some(auth))?;
+
+                let requested_scopes = request
+                    .scope
+                    .as_deref()
+                    .map(parse_scopes)
+                    .unwrap_or_default();
+                let _scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+
+                // we need a service account principal for the client credentials grant, but we don't have that implemented yet, so we'll just return an error for now
+                // self.issue_tokens_for_client(
+                //     &client,
+                //     &principal,
+                //     &scopes,
+                //     request.resource.as_deref(),
+                // )
+                // .await
+                Err(ErrorResponse::new(ErrorCode::UnsupportedGrantType)
+                    .with_description("client credentials grant is not implemented"))
+            }
+            TokenRequest::RefreshToken(request) => {
+                let now = Utc::now();
+
+                let (jwt_header, refresh_token) =
+                    decode_jwt::<StandardClaims>(&request.refresh_token.0)?;
+
+                if refresh_token.r#use != TokenUse::Refresh {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("token is not a refresh token"));
+                }
+                if refresh_token.exp < now.timestamp() {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("refresh token is expired"));
+                }
+                let key = self
+                    .key_repo
+                    .find_by_id(jwt_header.kid)
+                    .await?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("refresh token signing key not found")
+                    })?;
+
+                // TODO: get a derevided key from the key ring store to validate token.
+
+                let client = self
+                    .client_repo
+                    .find_client_by_client_id(&refresh_token.client_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidClient)
+                            .with_description("client not found")
+                    })?;
+                self.validate_grant_type(&client, GrantType::RefreshToken)?;
+                self.authenticate_client_for_token_endpoint(&client, client_auth.as_ref())?;
+
+                let requested_scopes = request
+                    .scope
+                    .as_deref()
+                    .map(parse_scopes)
+                    .unwrap_or_default();
+                let scopes = if requested_scopes.is_empty() {
+                    refresh_token.scope
+                } else {
+                    let scopes = intersect_scopes(&requested_scopes, &refresh_token.scope);
+                    if scopes.len() != requested_scopes.len() {
+                        return Err(
+                            ErrorResponse::new(ErrorCode::InvalidScope).with_description(
+                                "requested scope must be a subset of refresh token scope",
+                            ),
+                        );
+                    }
+                    scopes
+                };
+
+                let principal = self
+                    .find_principal(key.id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("principal not found for refresh token")
+                    })?;
+
+                self.issue_tokens_for_client(
+                    &client,
+                    principal.as_ref(),
+                    &scopes,
+                    refresh_token.resource.as_deref(),
+                )
+                .await
+            }
+            TokenRequest::TokenExchange(request) => {
+                match request.subject_token_type {
+                    SubjectTokenType::AccessToken
+                    | SubjectTokenType::RefreshToken
+                    | SubjectTokenType::Jwt => {}
+                    _ => {
+                        return Err(ErrorResponse::new(ErrorCode::InvalidRequest)
+                            .with_description(
+                                "unsupported subject_token_type for token exchange",
+                            ));
+                    }
+                }
+
+                let (jwt_header, subject_token) =
+                    decode_jwt::<StandardClaims>(&request.subject_token)?;
+
+                if subject_token.exp < Utc::now().timestamp() {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("subject_token is revoked"));
+                }
+
+                let key = self
+                    .key_repo
+                    .find_by_id(jwt_header.kid)
+                    .await?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("refresh token signing key not found")
+                    })?;
+
+                // TODO: get a derevided key from the key ring store to validate token.
+
+                let client = self
+                    .client_repo
+                    .find_client_by_client_id(&subject_token.client_id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidClient)
+                            .with_description("client not found")
+                    })?;
+                self.authenticate_client_for_token_endpoint(&client, client_auth.as_ref())?;
+
+                let requested_scopes = request
+                    .scope
+                    .as_deref()
+                    .map(parse_scopes)
+                    .unwrap_or_default();
+                let scopes = if requested_scopes.is_empty() {
+                    subject_token.scope
+                } else {
+                    intersect_scopes(&requested_scopes, &subject_token.scope)
+                };
+
+                let principal = self
+                    .find_principal(key.id)
+                    .await
+                    .map_err(ErrorResponse::from)?
+                    .ok_or_else(|| {
+                        ErrorResponse::new(ErrorCode::InvalidGrant)
+                            .with_description("principal not found for subject_token")
+                    })?;
+
+                self.issue_tokens_for_client(
+                    &client,
+                    principal.as_ref(),
+                    &scopes,
+                    request
+                        .resource
+                        .as_deref()
+                        .or(subject_token.resource.as_deref()),
+                )
+                .await
+            }
+        }
+    }
+
+    fn validate_grant_type(
+        &self,
+        client: &Client,
+        grant_type: GrantType,
+    ) -> ErrorResponseResult<()> {
+        if client.allowed_grant_types.is_empty() || client.allowed_grant_types.contains(&grant_type)
+        {
+            return Ok(());
+        }
+
+        Err(ErrorResponse::new(ErrorCode::UnauthorizedClient)
+            .with_description("client is not authorized for this grant type"))
+    }
+
+    fn authenticate_client_for_token_endpoint(
+        &self,
+        client: &Client,
+        client_auth: Option<&OAuth2ClientAuth>,
+    ) -> ErrorResponseResult<()> {
+        match client.client_type {
+            ClientType::Confidential => {
+                let auth = client_auth.ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::InvalidClient)
+                        .with_description("client authentication is required")
+                })?;
+
+                if auth.client_id != client.client_id {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidClient)
+                        .with_description("client_id does not match token subject"));
+                }
+
+                if auth.client_secret.as_deref() != Some(client.client_secret.as_str()) {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidClient)
+                        .with_description("invalid client credentials"));
+                }
+
+                Ok(())
+            }
+            ClientType::Public => {
+                if let Some(auth) = client_auth
+                    && auth.client_id != client.client_id
+                {
+                    return Err(ErrorResponse::new(ErrorCode::InvalidClient)
+                        .with_description("client_id does not match token subject"));
+                }
+
+                Ok(())
+            }
+        }
+    }
+
+    pub async fn revoke(&self, request: RevocationRequest) -> ErrorResponseResult<()> {
+        if request.token.trim().is_empty() {
+            return Err(
+                ErrorResponse::new(ErrorCode::InvalidRequest).with_description("token is required")
+            );
+        }
+
+        Err(ErrorResponse::new(ErrorCode::UnsupportedGrantType)
+            .with_description("token revocation is not implemented"))
+    }
+
+    pub async fn list_jwks(&self) -> ErrorResponseResult<Jwks> {
+        let keys = self
+            .key_repo
+            .list_active()
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        let master_key = self
+            .master_key_repo
+            .load(&self.master_key_name)
+            .await
+            .map_err(|error| {
+                ErrorResponse::new(ErrorCode::ServerError).with_description(error.to_string())
+            })?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::ServerError)
+                    .with_description("master key is not configured")
+            })?;
+
+        let mut jwks = Vec::new();
+        for key in keys {
+            if let Ok(jwk) = key.to_jwk_private(&master_key) {
+                jwks.push(JwkPublic::from(jwk));
+            }
+        }
+
+        Ok(Jwks { keys: jwks })
+    }
+
+    pub fn metadata(&self) -> AuthorizationServerMetadata {
+        self.oauth_config.to_metadata()
+    }
+
+    pub fn device_authorization(
+        &self,
+        request: DeviceAuthorizationRequest,
+    ) -> ErrorResponseResult<DeviceAuthorization> {
+        if request.client_id.as_deref().is_some_and(str::is_empty) {
+            return Err(ErrorResponse::new(ErrorCode::InvalidRequest)
+                .with_description("client_id cannot be empty"));
+        }
+
+        let issuer = self.oauth_config.issuer.trim_end_matches('/');
+        let user_code = generate_random_string::<32>();
+
+        Ok(DeviceAuthorization {
+            device_code: Some(generate_random_string::<32>()),
+            expires_in: Some(self.oauth_config.device_code_ttl_secs),
+            interval: Some(self.oauth_config.device_poll_interval_secs),
+            user_code: Some(user_code.clone()),
+            verification_uri: Some(format!("{issuer}/oauth2/device/verify")),
+            verification_uri_complete: Some(format!(
+                "{issuer}/oauth2/device/verify?user_code={user_code}"
+            )),
+        })
+    }
+
+    async fn issue_tokens_for_client(
+        &self,
+        client: &Client,
+        principal: &dyn Principal,
+        scopes: &[String],
+        resource: Option<&str>,
+    ) -> ErrorResponseResult<TokenResponse> {
+        let now = Utc::now();
+        let master_key = self
+            .master_key_repo
+            .load(&self.master_key_name)
+            .await
+            .map_err(|error| {
+                ErrorResponse::new(ErrorCode::ServerError).with_description(error.to_string())
+            })?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::ServerError)
+                    .with_description("master key is not configured")
+            })?;
+        let signing_jwk = principal.get_key().to_jwk_private(&master_key)?;
+        let scope = if scopes.is_empty() {
+            None
+        } else {
+            Some(scopes.join(" "))
+        };
+
+        let access_claims = StandardClaims {
+            r#type: TokenType::Bearer,
+            r#use: TokenUse::Access,
+            exp: (now + Duration::seconds(self.oauth_config.token_ttl_secs as i64)).timestamp(),
+            iat: now.timestamp(),
+            nbf: now.timestamp(),
+            iss: self.oauth_config.issuer.clone(),
+            aud: client.client_id.clone(),
+            client_id: client.client_id.clone(),
+            sub: principal.get_key().id.to_string(),
+            scope: scopes.to_vec(),
+            resource: resource.map(|r| r.to_string()),
+        };
+
+        let access_token_value = encode_jwt(&signing_jwk, &access_claims)?;
+
+        let id_token = IdTokenClaims {
+            standard_claims: StandardClaims {
+                r#use: TokenUse::Id,
+                ..access_claims.clone()
+            },
+            // TODO: Populate user info claims based on the principal,
+            //       we need to rethink this for other principals like service accounts, etc.
+            user_info: UserInfo::default(),
+        };
+
+        let id_token_value = encode_jwt(&signing_jwk, &id_token)?;
+
+        let refresh_claims = StandardClaims {
+            r#use: TokenUse::Refresh,
+            exp: (now + Duration::seconds(self.oauth_config.refresh_token_ttl_secs as i64))
+                .timestamp(),
+            ..access_claims
+        };
+
+        let refresh_token_value = encode_jwt(&signing_jwk, &refresh_claims)?;
+
+        Ok(TokenResponse {
+            id_token: IdToken(id_token_value),
+            access_token: AccessToken(access_token_value),
+            token_type: TokenType::Bearer,
+            expires_in: Some(self.oauth_config.token_ttl_secs),
+            refresh_token: Some(RefreshToken(refresh_token_value)),
+            scope,
+            issuer: Some(self.oauth_config.issuer.clone()),
+        })
+    }
+
+    pub async fn find_user_info(&self, user_id: i64) -> ErrorResponseResult<UserInfo> {
+        let user = self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::NotFound)
+                    .with_description("User not found".to_string())
+            })?;
+        let mut user_info: UserInfo = From::from(user);
+
+        let emails = self
+            .user_repo
+            .find_user_emails_by_user_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?;
+        if let Some(primary_email) = emails.into_iter().find(|e| e.primary) {
+            user_info.email = Some(primary_email.email);
+            user_info.email_verified = Some(primary_email.verified);
+        }
+
+        let phone_numbers = self
+            .user_repo
+            .find_user_phone_numbers_by_user_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?;
+        if let Some(primary_phone_number) = phone_numbers.into_iter().find(|e| e.primary) {
+            user_info.phone_number = Some(primary_phone_number.phone_number);
+            user_info.phone_number_verified = Some(primary_phone_number.verified);
+        }
+
+        Ok(user_info)
+    }
+
+    pub async fn find_principal(
+        &self,
+        key_id: i64,
+    ) -> ErrorResponseResult<Option<Box<dyn Principal>>> {
+        let key = if let Some(key) = self.key_repo.find_by_id(key_id).await? {
+            key
+        } else {
+            return Ok(None);
+        };
+
+        let principal =
+            match key.entity_type {
+                EntityType::User => {
+                    let user =
+                        if let Some(user) = self.user_repo.find_user_by_id(key.entity_id).await? {
+                            user
+                        } else {
+                            return Ok(None);
+                        };
+
+                    Box::new(UserPrincipal { user, key }) as Box<dyn Principal>
+                }
+                _ => {
+                    return Err(ErrorResponse::new(ErrorCode::ServerError).with_description(
+                        format!("unsupported principal entity type: {}", key.entity_type),
+                    ));
+                }
+            };
+
+        Ok(Some(principal))
+    }
+}

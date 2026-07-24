@@ -1,0 +1,244 @@
+use std::sync::Arc;
+
+use db::run_transaction;
+use libsql::{Database, de::from_row};
+use model::{
+    contract::EntityType,
+    model::{User, UserEmail, UserPassword, UserPhoneNumber},
+};
+
+use crate::{
+    PasswordConfig,
+    repo::{LibSqlKeyRepo, RepoError, RepoResult, UserRepo},
+    util::encrypt_password,
+};
+
+pub struct LibSqlUserRepo {
+    database: Arc<Database>,
+    password_config: PasswordConfig,
+    libsql_key_repo: Arc<LibSqlKeyRepo>,
+}
+
+impl LibSqlUserRepo {
+    pub fn new(database: Arc<Database>, password_config: PasswordConfig) -> Self {
+        Self {
+            libsql_key_repo: Arc::new(LibSqlKeyRepo::new(database.clone())),
+            password_config,
+            database,
+        }
+    }
+}
+
+impl UserRepo for LibSqlUserRepo {
+    async fn find_user_by_id(&self, user_id: i64) -> RepoResult<Option<User>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                name,
+                given_name,
+                family_name,
+                middle_name,
+                nickname,
+                profile,
+                picture,
+                website,
+                sex,
+                birthdate,
+                zoneinfo,
+                locale,
+                created_at,
+                updated_at
+            FROM users
+            WHERE id = ?
+        "#;
+        let row = {
+            let mut rows = connection.query(query, libsql::params![user_id]).await?;
+            if let Some(row) = rows.next().await? {
+                row
+            } else {
+                return Ok(None);
+            }
+        };
+        let user = from_row::<User>(&row)?;
+        Ok(Some(user))
+    }
+
+    async fn find_user_by_username_or_email(&self, identifier: &str) -> RepoResult<Option<User>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                u.id,
+                u.name,
+                u.given_name,
+                u.family_name,
+                u.middle_name,
+                u.nickname,
+                u.profile,
+                u.picture,
+                u.website,
+                u.sex,
+                u.birthdate,
+                u.zoneinfo,
+                u.locale,
+                u.created_at,
+                u.updated_at
+            FROM users u
+            JOIN user_emails ue ON ue.user_id = u.id
+            WHERE lower(ue.email) = lower(?) OR lower(u.name) = lower(?)
+            ORDER BY ue.`primary` DESC, ue.id ASC
+            LIMIT 1
+        "#;
+        let row = {
+            let mut rows = connection
+                .query(query, libsql::params![identifier, identifier])
+                .await?;
+            if let Some(row) = rows.next().await? {
+                row
+            } else {
+                return Ok(None);
+            }
+        };
+
+        let user = from_row::<User>(&row)?;
+        Ok(Some(user))
+    }
+
+    async fn find_user_emails_by_user_id(&self, user_id: i64) -> RepoResult<Vec<UserEmail>> {
+        let connection = self.database.connect()?;
+
+        let query =
+            r#"SELECT * FROM user_emails where user_id = ? ORDER BY `primary` DESC, id ASC;"#;
+        let mut rows = connection.query(query, libsql::params![user_id]).await?;
+
+        let emails = {
+            let mut emails = Vec::new();
+            while let Some(row) = rows.next().await? {
+                let email: UserEmail = from_row(&row)?;
+                emails.push(email);
+            }
+            emails
+        };
+
+        Ok(emails)
+    }
+
+    async fn find_user_phone_numbers_by_user_id(
+        &self,
+        user_id: i64,
+    ) -> RepoResult<Vec<UserPhoneNumber>> {
+        let connection = self.database.connect()?;
+
+        let query = r#"SELECT * FROM user_phone_numbers where user_id = ? ORDER BY `primary` DESC, id ASC;"#;
+        let mut rows = connection.query(query, libsql::params![user_id]).await?;
+
+        let phone_numbers = {
+            let mut phone_numbers = Vec::new();
+            while let Some(row) = rows.next().await? {
+                let phone_number: UserPhoneNumber = from_row(&row)?;
+                phone_numbers.push(phone_number);
+            }
+            phone_numbers
+        };
+
+        Ok(phone_numbers)
+    }
+
+    async fn find_user_password_by_user_id(
+        &self,
+        user_id: i64,
+    ) -> RepoResult<Option<UserPassword>> {
+        let connection = self.database.connect()?;
+
+        let query = r#"SELECT * FROM user_passwords where user_id = ? AND active = 1 LIMIT 1;"#;
+        let mut rows = connection.query(query, libsql::params![user_id]).await?;
+
+        if let Some(row) = rows.next().await? {
+            let password: UserPassword = from_row(&row)?;
+            Ok(Some(password))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn create_user_with_email_and_password(
+        &self,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> RepoResult<User> {
+        let connection = self.database.connect()?;
+
+        let libsql_key_repo = self.libsql_key_repo.clone();
+
+        let username = username.to_string();
+        let email = email.to_string();
+        let password_hash = encrypt_password(&self.password_config, password)
+            .map_err(|e| RepoError::Other(e.into()))?;
+
+        let (user, _email, _password) = run_transaction(&connection, move |transaction| {
+            Box::pin(async move {
+                let user_query = r#"
+                INSERT INTO users (name) VALUES (?)
+                RETURNING *;"#;
+
+                let mut rows = transaction
+                    .query(user_query, libsql::params![username.clone()])
+                    .await?;
+
+                let row = rows
+                    .next()
+                    .await?
+                    .ok_or_else(|| libsql::Error::Misuse("user not found after insert".into()))?;
+                let user: User = from_row(&row).map_err(|e| {
+                    libsql::Error::Misuse(format!("invalid rows returned for user: {}", e))
+                })?;
+
+                let email_query = r#"
+                INSERT INTO `user_emails` (
+                    `user_id`,
+                    `email`,
+                    `verified`,
+                    `primary`
+                ) VALUES (?, ?, ?, ?)
+                RETURNING *;"#;
+
+                let mut rows = transaction
+                    .query(email_query, libsql::params![user.id, email, false, true])
+                    .await?;
+                let row = rows.next().await?.ok_or_else(|| {
+                    libsql::Error::Misuse("user email not found after insert".into())
+                })?;
+                let email: UserEmail = from_row(&row).map_err(|e| {
+                    libsql::Error::Misuse(format!("invalid rows returned for user email: {}", e))
+                })?;
+
+                let password_query = r#"
+                INSERT INTO `user_passwords` (
+                    `user_id`,
+                    `password_hash`
+                ) VALUES (?, ?)
+                RETURNING *;"#;
+                let mut rows = transaction
+                    .query(password_query, libsql::params![user.id, password_hash])
+                    .await?;
+                let row = rows.next().await?.ok_or_else(|| {
+                    libsql::Error::Misuse("user password not found after insert".into())
+                })?;
+                let password: UserPassword = from_row(&row).map_err(|e| {
+                    libsql::Error::Misuse(format!("invalid rows returned for user password: {}", e))
+                })?;
+
+                libsql_key_repo
+                    .tx_create_key(EntityType::User, user.id, true, username, None, transaction)
+                    .await
+                    .map_err(RepoError::into_libsql)?;
+
+                Ok((user, email, password))
+            })
+        })
+        .await?;
+
+        Ok(user)
+    }
+}
