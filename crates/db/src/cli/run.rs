@@ -68,19 +68,15 @@ pub async fn run() -> io::Result<()> {
 
     let run_up = |database: Arc<Database>, migration_files: Vec<MigrationFile>| {
         spawn(async move {
-            up(&database, &migration_files).await.map_err(|e| {
-                io::Error::other(
-                    format!("failed to run database migrations: {}", e),
-                )
-            })
+            up(&database, &migration_files)
+                .await
+                .map_err(|e| io::Error::other(format!("failed to run database migrations: {}", e)))
         })
     };
     let run_down = |database: Arc<Database>, migration_files: Vec<MigrationFile>| {
         spawn(async move {
             down(&database, &migration_files).await.map_err(|e| {
-                io::Error::other(
-                    format!("failed to revert database migrations: {}", e),
-                )
+                io::Error::other(format!("failed to revert database migrations: {}", e))
             })
         })
     };

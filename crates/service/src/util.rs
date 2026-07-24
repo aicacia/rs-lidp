@@ -7,7 +7,7 @@ pub fn generate_random_string<const N: usize>() -> String {
     debug_assert_ne!(N, 0);
     let mut bytes = [0u8; N];
     getrandom::fill(&mut bytes).expect("Failed to generate random bytes");
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&bytes)
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 pub fn random_bytes(size: usize) -> Vec<u8> {
@@ -19,7 +19,7 @@ pub fn random_bytes(size: usize) -> Vec<u8> {
 pub fn encrypt_password(config: &PasswordConfig, input: &str) -> argon2::Result<String> {
     argon2::hash_encoded(
         input.as_bytes(),
-        &random_bytes(config.salt_length).as_slice(),
+        random_bytes(config.salt_length).as_slice(),
         &argon2_config(config),
     )
 }

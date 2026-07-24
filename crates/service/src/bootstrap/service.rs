@@ -198,7 +198,7 @@ where
                 client_secret: Some(generate_random_string::<32>()),
                 client_id_issued_at: None,
                 client_secret_expires_at: None,
-                client_name: client_name,
+                client_name,
                 client_uri: Some(client_uri),
                 redirect_uris,
                 client_type: ClientType::Public,

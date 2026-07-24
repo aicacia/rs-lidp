@@ -43,12 +43,10 @@ pub async fn open_database(database_config: &DatabaseConfig) -> libsql::Result<l
             .build()
             .await
         }
-        _ => {
-            return Err(libsql::Error::Misuse(format!(
-                "unsupported database scheme: {}",
-                database_url.scheme()
-            )));
-        }
+        _ => Err(libsql::Error::Misuse(format!(
+            "unsupported database scheme: {}",
+            database_url.scheme()
+        ))),
     }
 }
 

@@ -32,7 +32,7 @@ impl RepoError {
     pub fn into_libsql(self) -> libsql::Error {
         match self {
             RepoError::LibSql(err) => err,
-            _ => libsql::Error::Misuse(format!("RepoError: {}", self.to_string())),
+            _ => libsql::Error::Misuse(format!("RepoError: {}", self)),
         }
     }
 }

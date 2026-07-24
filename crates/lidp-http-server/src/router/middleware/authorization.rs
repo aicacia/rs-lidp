@@ -71,7 +71,7 @@ fn authorization_from_header(
             if !authorization_string.starts_with(AUTHORIZATION_BEARER_PREFIX) {
                 log::warn!(
                     "authorization header does not start with 'Bearer ', starts with: {}",
-                    &authorization_string.chars().take(10).collect::<String>()
+                    authorization_string.chars().take(10).collect::<String>()
                 );
                 return Err(ErrorResponse::new(ErrorCode::NotAuthorized)
                     .with_description("authorization header does not start with 'Bearer '"));

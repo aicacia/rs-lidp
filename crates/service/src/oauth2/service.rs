@@ -73,12 +73,12 @@ where
             client_id: Some(
                 request
                     .client_id
-                    .unwrap_or_else(|| generate_random_string::<32>()),
+                    .unwrap_or_else(generate_random_string::<32>),
             ),
             client_secret: Some(
                 request
                     .client_secret
-                    .unwrap_or_else(|| generate_random_string::<32>()),
+                    .unwrap_or_else(generate_random_string::<32>),
             ),
             ..request
         };
@@ -272,14 +272,10 @@ where
                             .with_description("user key not found")
                     })?;
 
-                let principal = self
-                    .find_principal(key.id)
-                    .await
-                    .map_err(ErrorResponse::from)?
-                    .ok_or_else(|| {
-                        ErrorResponse::new(ErrorCode::InvalidGrant)
-                            .with_description("principal not found for user")
-                    })?;
+                let principal = self.find_principal(key.id).await?.ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("principal not found for user")
+                })?;
 
                 let requested_scopes = request
                     .scope
@@ -320,8 +316,7 @@ where
 
                 let principal = self
                     .find_principal(authorization_code.key_id)
-                    .await
-                    .map_err(ErrorResponse::from)?
+                    .await?
                     .ok_or_else(|| {
                         ErrorResponse::new(ErrorCode::InvalidGrant)
                             .with_description("principal not found for authorization code")
@@ -462,14 +457,10 @@ where
                     scopes
                 };
 
-                let principal = self
-                    .find_principal(key.id)
-                    .await
-                    .map_err(ErrorResponse::from)?
-                    .ok_or_else(|| {
-                        ErrorResponse::new(ErrorCode::InvalidGrant)
-                            .with_description("principal not found for refresh token")
-                    })?;
+                let principal = self.find_principal(key.id).await?.ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("principal not found for refresh token")
+                })?;
 
                 self.issue_tokens_for_client(
                     &client,
@@ -533,14 +524,10 @@ where
                     intersect_scopes(&requested_scopes, &subject_token.scope)
                 };
 
-                let principal = self
-                    .find_principal(key.id)
-                    .await
-                    .map_err(ErrorResponse::from)?
-                    .ok_or_else(|| {
-                        ErrorResponse::new(ErrorCode::InvalidGrant)
-                            .with_description("principal not found for subject_token")
-                    })?;
+                let principal = self.find_principal(key.id).await?.ok_or_else(|| {
+                    ErrorResponse::new(ErrorCode::InvalidGrant)
+                        .with_description("principal not found for subject_token")
+                })?;
 
                 self.issue_tokens_for_client(
                     &client,
