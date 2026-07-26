@@ -20,6 +20,6 @@ use crate::contract::{StandardClaims, UserInfo};
 pub struct IdTokenClaims {
     #[serde(flatten)]
     pub standard_claims: StandardClaims,
-    #[serde(flatten)]
-    pub user_info: UserInfo,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub user_info: Option<UserInfo>,
 }

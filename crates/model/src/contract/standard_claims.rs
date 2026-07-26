@@ -26,7 +26,6 @@ pub struct StandardClaims {
     pub iss: String,
     pub aud: String,
     pub sub: String,
-    pub client_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource: Option<String>,
     #[serde(

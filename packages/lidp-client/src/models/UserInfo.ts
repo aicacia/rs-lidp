@@ -111,6 +111,12 @@ export interface UserInfo {
     profile?: string | null;
     /**
      * 
+     * @type {string}
+     * @memberof UserInfo
+     */
+    sub: string;
+    /**
+     * 
      * @type {Date}
      * @memberof UserInfo
      */
@@ -133,6 +139,7 @@ export interface UserInfo {
  * Check if a given object implements the UserInfo interface.
  */
 export function instanceOfUserInfo(value: object): value is UserInfo {
+    if (!('sub' in value) || value['sub'] === undefined) return false;
     if (!('updatedAt' in value) || value['updatedAt'] === undefined) return false;
     return true;
 }
@@ -162,6 +169,7 @@ export function UserInfoFromJSONTyped(json: any, ignoreDiscriminator: boolean): 
         'picture': json['picture'] == null ? undefined : json['picture'],
         'preferredUsername': json['preferred_username'] == null ? undefined : json['preferred_username'],
         'profile': json['profile'] == null ? undefined : json['profile'],
+        'sub': json['sub'],
         'updatedAt': (new Date(json['updated_at'])),
         'website': json['website'] == null ? undefined : json['website'],
         'zoneinfo': json['zoneinfo'] == null ? undefined : json['zoneinfo'],
@@ -194,6 +202,7 @@ export function UserInfoToJSONTyped(value?: UserInfo | null, ignoreDiscriminator
         'picture': value['picture'],
         'preferred_username': value['preferredUsername'],
         'profile': value['profile'],
+        'sub': value['sub'],
         'updated_at': ((value['updatedAt']).toISOString()),
         'website': value['website'],
         'zoneinfo': value['zoneinfo'],

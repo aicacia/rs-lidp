@@ -24,7 +24,7 @@ pub struct JwkPrivate {
     #[serde(rename = "use")]
     pub r#use: KeyUse,
 
-    pub kid: i64,
+    pub kid: u32,
 
     /// Algorithm intended for use
     pub alg: JwsAlgorithm,

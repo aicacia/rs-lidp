@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub struct JwtHeader {
     pub alg: String,
     pub typ: String,
-    pub kid: i64,
+    pub kid: u32,
 }
 
 const JWT_HEADER_ALG: &str = "ES256K";

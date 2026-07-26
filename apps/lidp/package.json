@@ -41,6 +41,8 @@
 		"@aicacia/svelte-headless": "workspace:*",
 		"@aicacia/oidc-client": "workspace:*",
 		"@aicacia/lidp-client": "workspace:*",
+		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/plugin-opener": "^2.5.4",
 		"valibot": "^1.4.2"
 	}
 }

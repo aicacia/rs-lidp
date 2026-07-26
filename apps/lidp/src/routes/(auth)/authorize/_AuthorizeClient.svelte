@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	export interface ClientProps {
 		userInfo: UserInfo;
-		client: Client;
+		client: ClientRegistration;
 		disabled?: boolean;
 		onAllow: () => Promise<void>;
 		onDeny: () => Promise<void>;
@@ -10,7 +10,7 @@
 
 <script lang="ts">
 	import { m } from "$lib/paraglide/messages";
-	import type { Client, UserInfo } from "$lib/proto/mises";
+	import type { ClientRegistration, UserInfo } from "@aicacia/lidp-client";
 	import Avatar from "../../../lib/common/components/Avatar.svelte";
 
 	let { userInfo, client, disabled, onAllow, onDeny }: ClientProps = $props();
@@ -38,11 +38,11 @@
 <div class="flex flex-col justify-center">
 	<div class="flex flex-col items-center justify-center">
 		{#if client.logoUri}
-			<Avatar src={client.logoUri} alt={`${client.name}`} />
+			<Avatar src={client.logoUri} alt={`${client.clientName}`} />
 		{/if}
 
 		<h1 class="m-0 mt-2 text-xl font-semibold">
-			{client.name}
+			{client.clientName}
 		</h1>
 	</div>
 
@@ -56,11 +56,8 @@
 <div class="my-4 flex flex-col justify-center">
 	<h2 class="text-sm font-medium">{m.authorize_requested_permissions()}</h2>
 
-	{#if client.scope}
-		{@const scopes = client.scope
-			.split(" ")
-			.map((scope) => scope.trim())
-			.filter((scope) => scope.length > 0)}
+	{#if client.allowedScopes}
+		{@const scopes = client.allowedScopes}
 
 		<ul class="list-inside list-disc text-sm">
 			{#each scopes as scope (scope)}

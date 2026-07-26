@@ -7,18 +7,18 @@ use model::{
     model::Client,
 };
 
-use crate::repo::{ClientRepo, LibSqlKeyRepo, RepoError, RepoResult};
+use crate::repo::{ClientRepo, KeyService, LibSqlKeyRepo, RepoError, RepoResult};
 
 pub struct LibSqlClientRepo {
     database: Arc<Database>,
-    libsql_key_repo: Arc<LibSqlKeyRepo>,
+    key_service: Arc<KeyService<LibSqlKeyRepo>>,
 }
 
 impl LibSqlClientRepo {
-    pub fn new(database: Arc<Database>) -> Self {
+    pub fn new(database: Arc<Database>, key_service: Arc<KeyService<LibSqlKeyRepo>>) -> Self {
         Self {
-            libsql_key_repo: Arc::new(LibSqlKeyRepo::new(database.clone())),
             database,
+            key_service,
         }
     }
 }
@@ -80,7 +80,7 @@ impl ClientRepo for LibSqlClientRepo {
         let contacts =
             serde_json::to_string(&client.contacts).map_err(|e| RepoError::Other(Box::new(e)))?;
 
-        let libsql_key_repo = self.libsql_key_repo.clone();
+        let key_service = self.key_service.clone();
 
         let (_id, client_id) = run_transaction(&connection, move |transaction| {
             Box::pin(async move {
@@ -139,8 +139,10 @@ impl ClientRepo for LibSqlClientRepo {
                 let id: i64 = row.get(0)?;
                 let client_id: String = row.get(1)?;
 
-                libsql_key_repo
+                key_service
+                    .key_repo()
                     .tx_create_key(
+                        None,
                         EntityType::Client,
                         id,
                         true,

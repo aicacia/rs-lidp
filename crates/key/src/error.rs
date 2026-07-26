@@ -24,6 +24,13 @@ impl KeyError {
     {
         KeyError::InvalidDerivation(error.into())
     }
+
+    pub fn other<E>(error: E) -> Self
+    where
+        E: Into<Box<dyn Error + Send + Sync>>,
+    {
+        KeyError::Other(error.into())
+    }
 }
 
 impl From<bip32::Error> for KeyError {

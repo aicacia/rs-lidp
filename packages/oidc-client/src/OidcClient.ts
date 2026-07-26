@@ -354,10 +354,12 @@ export class OidcClient<
                 { endpoint: this.config.authority },
             );
         }
-        const userInfoUrl = new URL(config.userinfo_endpoint);
+      const userInfoUrl = new URL(config.userinfo_endpoint);
 
-        let userInfoResponse: Response;
+      let userInfoResponse: Response;
         try {
+          const isNative = isNativeProtocol(userInfoUrl);
+          if (isNative) {
             userInfoResponse = await nativeFetch(userInfoUrl, {
                 method: "GET",
                 headers: {
@@ -370,6 +372,17 @@ export class OidcClient<
                     ? this.config.requestTimeoutInSeconds * 1000
                     : undefined,
             });
+          } else {
+            userInfoResponse = await this.fetch(userInfoUrl, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json;charset=UTF-8",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                credentials:
+                    this.config.fetchRequestCredentials ?? "same-origin"
+            })
+          }
         } catch (error: unknown) {
             if (this.isTimeoutError(error)) {
                 throw new OidcClientError(

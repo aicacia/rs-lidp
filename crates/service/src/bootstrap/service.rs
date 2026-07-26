@@ -2,9 +2,12 @@
 use alloc::{
     boxed::Box,
     string::{String, ToString},
+    sync::Arc,
     vec,
     vec::Vec,
 };
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use model::{
     contract::{
@@ -16,49 +19,52 @@ use model::{
 
 use super::config::BootstrapConfig;
 use crate::{
-    repo::{ClientRepo, KeyRepo, MasterKeyRepo, RepoResult, UserRepo},
+    repo::{ClientRepo, KeyRepo, KeyService, PrivateKeyRepo, RepoResult, UserRepo},
     util::generate_random_string,
 };
 
-pub struct BootstrapService<C, K, U, M> {
+pub struct BootstrapService<C, K, U> {
     client_repo: C,
-    key_repo: K,
     user_repo: U,
-    master_key_repo: M,
-    master_key_name: String,
+    key_service: Arc<KeyService<K>>,
     config: BootstrapConfig,
+    key_namespace: String,
 }
 
-impl<C, K, U, M> BootstrapService<C, K, U, M>
+impl<C, K, U> BootstrapService<C, K, U>
 where
     C: ClientRepo,
     K: KeyRepo,
     U: UserRepo,
-    M: MasterKeyRepo,
 {
     pub fn new(
         client_repo: C,
-        key_repo: K,
         user_repo: U,
-        master_key_repo: M,
-        master_key_name: impl Into<String>,
+        key_service: Arc<KeyService<K>>,
         config: BootstrapConfig,
+        key_namespace: impl Into<String>,
     ) -> Self {
         Self {
             client_repo,
-            key_repo,
             user_repo,
-            master_key_repo,
-            master_key_name: master_key_name.into(),
+            key_service,
             config,
+            key_namespace: key_namespace.into(),
         }
     }
 
     pub async fn ensure_system_baseline(&self) -> RepoResult<()> {
-        let _master_key = self
-            .master_key_repo
-            .create_or_load(&self.master_key_name)
-            .await?;
+        if self.config.is_master {
+            log::debug!(
+                "Ensuring master key exists for namespace: {}",
+                self.key_namespace
+            );
+            self.key_service
+                .private_key_repo()
+                .ensure_master_key(&self.key_namespace)?;
+        } else {
+            log::debug!("not a master node, skipping master key creation");
+        }
 
         let lidp_web_client = self
             .ensure_client(
@@ -186,6 +192,7 @@ where
             }
 
             if changed {
+                log::debug!("Updating client with client_id: {}", client.client_id);
                 let client = self.client_repo.update_client(client).await?;
                 log::debug!("Updated client with client_id: {}", client.client_id);
                 Ok(client)
@@ -221,6 +228,7 @@ where
                 software_version: None,
             };
 
+            log::debug!("Creating new client with client_id: {:?}", client.client_id);
             let client = self.client_repo.create_client(client).await?;
             log::debug!("Created client with client_id: {}", client.client_id);
             Ok(client)
@@ -261,16 +269,27 @@ where
         hardened: bool,
     ) -> RepoResult<Key> {
         if let Some(key) = self
-            .key_repo
-            .active_by_entity_type_and_id(entity_type, entity_id)
+            .key_service
+            .key_repo()
+            .find_by_entity_type_and_id(entity_type, entity_id)
             .await?
         {
+            self.key_service
+                .private_key_repo()
+                .ensure_derivation_path(&self.key_namespace, key.derivation_path()?)?;
             return Ok(key);
         }
 
-        let key = self
-            .key_repo
-            .create_key(entity_type, entity_id, hardened, name.to_string(), None)
+        let (key, _derived_key) = self
+            .key_service
+            .create_key(
+                None,
+                entity_type,
+                entity_id,
+                hardened,
+                name.to_owned(),
+                None,
+            )
             .await?;
 
         log::debug!("Created new active key for entity_id: {}", entity_id);

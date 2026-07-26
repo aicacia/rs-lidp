@@ -6,7 +6,12 @@ use model::contract::{DeviceAuthorization, DeviceAuthorizationRequest, ErrorCode
 
 use crate::router::RouterState;
 
-#[utoipa::path(post, path = "/oauth2/device/auth", request_body(content = DeviceAuthorizationRequest, content_type = "application/x-www-form-urlencoded"), responses((status = 200, description = "Device authorization", body = DeviceAuthorization)))]
+#[utoipa::path(
+    post,
+    path = "/oauth2/device/auth",
+    request_body(content = DeviceAuthorizationRequest, content_type = "application/x-www-form-urlencoded"),
+    responses((status = 200, description = "Device authorization", body = DeviceAuthorization))
+)]
 pub(crate) async fn device_auth(
     State(state): State<RouterState>,
     Form(request): Form<DeviceAuthorizationRequest>,

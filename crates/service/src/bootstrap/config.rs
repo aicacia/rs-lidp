@@ -6,7 +6,9 @@ use alloc::{
 };
 
 #[derive(Clone, Debug, serde::Deserialize)]
+#[serde(default)]
 pub struct BootstrapConfig {
+    pub is_master: bool,
     pub lidp_url: String,
     pub lidp_management_url: String,
     pub admin_username: String,
@@ -17,6 +19,7 @@ pub struct BootstrapConfig {
 impl Default for BootstrapConfig {
     fn default() -> Self {
         Self {
+            is_master: false,
             lidp_url: "https://lidp.localhost:1337".to_string(),
             lidp_management_url: "https://lidp-management.localhost:1337".to_string(),
             admin_username: "admin".to_string(),

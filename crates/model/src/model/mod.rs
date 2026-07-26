@@ -1,7 +1,9 @@
 mod client;
 pub mod json_vec;
 mod key;
+mod none_to_default;
 mod oauth2_authorization_code;
+mod oauth2_user_consent;
 mod sql_enum;
 mod user;
 mod user_email;
@@ -10,7 +12,9 @@ mod user_phone_number;
 
 pub use client::Client;
 pub use key::Key;
+pub use none_to_default::none_to_default;
 pub use oauth2_authorization_code::OAuth2AuthorizationCode;
+pub use oauth2_user_consent::OAuth2UserConsent;
 pub use user::User;
 pub use user_email::UserEmail;
 pub use user_password::UserPassword;

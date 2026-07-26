@@ -69,6 +69,14 @@ impl MasterKey {
         Self::from_mnemonic_with_passphrase(mnemonic, "")
     }
 
+    pub fn from_xprv<S>(xprv: S) -> KeyResult<Self>
+    where
+        S: AsRef<str>,
+    {
+        let key = XPrv::from_str(xprv.as_ref())?;
+        Ok(Self { key })
+    }
+
     pub fn key(&self) -> &XPrv {
         &self.key
     }
@@ -135,5 +143,11 @@ impl MasterKey {
         }
 
         Ok(xpub.public_key() == child)
+    }
+}
+
+impl Into<DerivedKey> for MasterKey {
+    fn into(self) -> DerivedKey {
+        DerivedKey::new(self.key, DerivationPath::default())
     }
 }

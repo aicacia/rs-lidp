@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{CodeChallengeMethod, ResponseMode, ResponseType};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 #[cfg_attr(
     feature = "wasm",
     derive(tsify::Tsify),
@@ -26,7 +26,8 @@ pub struct AuthorizationRequest {
     pub redirect_uri: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
-    pub state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
     /// Audience parameter (RFC 8707) to specify the intended recipients of the token.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource: Option<String>,

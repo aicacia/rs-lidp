@@ -1,84 +1,58 @@
-import { oidcClient } from "$lib/common/util/grpcClient";
+import type { AuthorizationRequest } from "@aicacia/lidp-client";
+import { lidpApi } from "$lib/common/state/lidpClient.svelte";
 import { redirectToUrl } from "$lib/common/util/redirectToUrl";
-import type { AuthorizeRequest } from "$lib/proto/mises";
 
-// helper utilities used by authorization pages
-
-// url helpers
-
-export async function rejectAuthorizeRequest(
-    authorizeRequest: Pick<AuthorizeRequest, "redirectUri" | "state" | "nonce">,
+export async function rejectAuthorizationRequest(
+    authorizationRequest: Pick<
+        AuthorizationRequest,
+        "redirectUri" | "state" | "nonce"
+    >,
     error: string,
     errorDescription: string,
 ) {
-    const url = new URL(authorizeRequest.redirectUri!);
-    if (authorizeRequest.state) {
-        url.searchParams.set("state", authorizeRequest.state);
+    const url = new URL(authorizationRequest.redirectUri!);
+    if (authorizationRequest.state) {
+        url.searchParams.set("state", authorizationRequest.state);
     }
-    if (authorizeRequest.nonce) {
-        url.searchParams.set("nonce", authorizeRequest.nonce);
+    if (authorizationRequest.nonce) {
+        url.searchParams.set("nonce", authorizationRequest.nonce);
     }
     url.searchParams.set("error", error);
     url.searchParams.set("error_description", errorDescription);
     await redirectToUrl(url);
 }
 
-export async function resolveAuthorizeRequest(
-    authorizeRequest: AuthorizeRequest,
+export async function resolveAuthorizationRequest(
+    authorizationRequest: AuthorizationRequest,
 ) {
-    const authorizeResponse = await oidcClient().authorize(authorizeRequest);
+    const authorizeResponse = await lidpApi.authorizeJson({
+        authorizationRequest,
+    });
 
-    const url = new URL(authorizeResponse.redirectUri!);
-    if (authorizeRequest.state) {
-        url.searchParams.set("state", authorizeRequest.state);
+    if (authorizeResponse.error) {
+        throw new Error(
+            authorizeResponse.errorDescription ?? authorizeResponse.error,
+        );
     }
-    if (authorizeRequest.nonce) {
-        url.searchParams.set("nonce", authorizeRequest.nonce);
+
+    if (!authorizeResponse.code) {
+        throw new Error("authorization code response did not include code");
+    }
+
+    const url = new URL(authorizationRequest.redirectUri!);
+    url.searchParams.set("code", authorizeResponse.code);
+    if (authorizeResponse.iss) {
+        url.searchParams.set("iss", authorizeResponse.iss);
+    }
+    if (authorizeResponse.state ?? authorizationRequest.state) {
+        url.searchParams.set(
+            "state",
+            authorizeResponse.state ?? authorizationRequest.state!,
+        );
+    }
+    if (authorizationRequest.nonce) {
+        url.searchParams.set("nonce", authorizationRequest.nonce);
     }
 
     return await redirectToUrl(url);
-    // TODO: change response type to include all possible response parameters, and handle them accordingly
-    switch (authorizeRequest.responseMode) {
-        case "fragment":
-        case "query": {
-            switch (authorizeResponse.type) {
-                case "authorization_code": {
-                    url.searchParams.set("code", authorizeResponse.code);
-                    break;
-                }
-                case "implicit":
-                case "hybrid": {
-                    url.searchParams.set(
-                        "access_token",
-                        authorizeResponse.accessToken,
-                    );
-                    url.searchParams.set(
-                        "token_type",
-                        authorizeResponse.tokenType,
-                    );
-                    url.searchParams.set(
-                        "expires_in",
-                        authorizeResponse.expiresIn,
-                    );
-                    if (authorizeResponse.idToken) {
-                        url.searchParams.set(
-                            "id_token",
-                            authorizeResponse.idToken,
-                        );
-                    }
-                    break;
-                }
-            }
-            await redirectToUrl(url);
-            break;
-        }
-        case "form_post": {
-            throw new Error("not supported yet!");
-            break;
-        }
-        case "web_message": {
-            throw new Error("not supported yet!");
-            break;
-        }
-    }
 }

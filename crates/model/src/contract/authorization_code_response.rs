@@ -21,7 +21,8 @@ use super::ErrorResponse;
 pub enum AuthorizationCodeResponse {
     Success {
         code: String,
-        state: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        state: Option<String>,
         #[serde(rename = "iss", skip_serializing_if = "Option::is_none")]
         issuer: Option<String>,
     },

@@ -1,2 +1,2 @@
-oauth2:
-  issuer: https://lidp-api.localhost:1337
+bootstrap:
+  is_master: true

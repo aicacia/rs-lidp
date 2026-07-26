@@ -3,8 +3,9 @@ use alloc::{format, vec::Vec};
 
 use core::{fmt, str::FromStr};
 
-use bip32::{ChildNumber, DerivationPath, XPrv};
+use bip32::{ChildNumber, DerivationPath, Prefix, XPrv};
 use k256::ecdsa::VerifyingKey as ECDSAVerifyingKey;
+use zeroize::Zeroizing;
 
 use crate::{KeyError, KeyResult};
 
@@ -32,6 +33,20 @@ impl DerivedKey {
         &self.key
     }
 
+    pub fn from_xprv<S>(xprv: S, derivation_path: DerivationPath) -> KeyResult<Self>
+    where
+        S: AsRef<str>,
+    {
+        Ok(Self {
+            key: XPrv::from_str(xprv.as_ref())?,
+            derivation_path,
+        })
+    }
+
+    pub fn to_xprv_string(&self) -> Zeroizing<String> {
+        self.key.to_string(Prefix::XPRV)
+    }
+
     /// Returns the x, y
     pub fn to_xy(&self) -> KeyResult<(Vec<u8>, Vec<u8>)> {
         let extended_public_key = self.key().public_key();
@@ -39,11 +54,11 @@ impl DerivedKey {
         let encoded_point = public_key.to_encoded_point(false);
         let x_bytes = encoded_point
             .x()
-            .ok_or_else(|| KeyError::Other("invalid encoded point x value".into()))?;
+            .ok_or_else(|| KeyError::other("invalid encoded point x value"))?;
         let x = x_bytes.to_vec();
         let y_bytes = encoded_point
             .y()
-            .ok_or_else(|| KeyError::Other("invalid encoded point x value".into()))?;
+            .ok_or_else(|| KeyError::other("invalid encoded point y value"))?;
         let y = y_bytes.to_vec();
 
         Ok((x, y))
@@ -82,26 +97,30 @@ impl DerivedKey {
     where
         S: AsRef<str>,
     {
-        let path_str = path.as_ref();
+        let derivation_path = DerivationPath::from_str(path.as_ref())?;
+        self.derive_from_derivation_path(derivation_path)
+    }
 
-        if path_str.starts_with("m") {
-            return Err(KeyError::invalid_derivation(format!(
-                "Derivation path should not start with 'm': {}",
-                path_str
-            )));
+    pub fn derive_from_derivation_path(&self, derivation_path: DerivationPath) -> KeyResult<Self> {
+        let parent_path = self.derivation_path().as_ref();
+        let child_path = derivation_path.as_ref();
+
+        if child_path.len() < parent_path.len() {
+            return Err(KeyError::InvalidDerivation(
+                "child derivation path is shorter than parent derivation path".to_string(),
+            ));
         }
-        let children = path_str
-            .split('/')
-            .map(str::parse)
-            .collect::<Result<Vec<ChildNumber>, bip32::Error>>()?;
+
+        if !child_path.starts_with(parent_path) {
+            return Err(KeyError::InvalidDerivation(
+                "child derivation path does not start with parent derivation path".to_string(),
+            ));
+        }
 
         let mut key = self.key.clone();
-        for child in &children {
-            key = key.derive_child(*child)?;
+        for child_number in &child_path[parent_path.len()..] {
+            key = key.derive_child(*child_number)?;
         }
-
-        let mut derivation_path = self.derivation_path.clone();
-        derivation_path.extend(children);
 
         Ok(Self {
             key,

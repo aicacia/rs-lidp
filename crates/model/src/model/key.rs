@@ -1,3 +1,5 @@
+use core::str::FromStr;
+
 #[cfg(not(feature = "std"))]
 use alloc::{
     format,
@@ -7,7 +9,7 @@ use alloc::{
 
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chrono::{DateTime, Utc};
-use key::{DerivedKey, KeyResult, MasterKey};
+use key::{DerivationPath, DerivedKey, KeyResult};
 
 use crate::contract::{
     EntityType, JwkPrivate, JwkPrivateParameters, JwkPublic, JwkPublicParameters, JwsAlgorithm,
@@ -15,13 +17,15 @@ use crate::contract::{
 };
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Key {
-    pub id: i64,
+    pub id: u32,
+
+    pub parent_id: Option<u32>,
 
     #[serde(with = "super::sql_enum::entity_type")]
     pub entity_type: EntityType,
     pub entity_id: i64,
-    pub version: i64,
 
+    #[serde(deserialize_with = "super::none_to_default")]
     pub derivation_path: String,
     pub name: String,
     pub hardened: bool,
@@ -38,8 +42,7 @@ pub struct Key {
 }
 
 impl Key {
-    pub fn to_jwk_private(&self, master_key: &MasterKey) -> KeyResult<JwkPrivate> {
-        let derived_key = master_key.derive(&self.derivation_path)?;
+    pub fn to_jwk_private(&self, derived_key: &DerivedKey) -> KeyResult<JwkPrivate> {
         let (x, y, d) = derived_key.to_xyd()?;
 
         let jwt = JwkPrivate {
@@ -74,80 +77,31 @@ impl Key {
         Ok(jwt)
     }
 
+    pub fn derivation_path(&self) -> KeyResult<DerivationPath> {
+        let derivation_path = DerivationPath::from_str(&self.derivation_path)?;
+        Ok(derivation_path)
+    }
+
     pub fn build_derivation_path(
-        entity_type: EntityType,
-        entity_id: i64,
-        version: i64,
+        parent_derivation_path: Option<&str>,
+        key_id: u32,
         hardened: bool,
     ) -> String {
         let mut path = String::new();
 
-        path.push_str("m/1581'/");
-
-        let (entity_id_low, entity_id_high) = split_i64(entity_id);
-        let (version_low, version_high) = split_i64(version);
+        if let Some(parent_path) = parent_derivation_path {
+            path.push_str(parent_path);
+        } else {
+            path.push('m');
+        }
 
         if hardened {
-            path.push_str(&format!(
-                "{}'/{}'/{}'/{}'/{}'",
-                entity_type as u32, entity_id_low, entity_id_high, version_low, version_high
-            ));
+            // FIXME: we should make the key if fits in the hardened range, but for now we just append a `'` to indicate it's hardened
+            path.push_str(&format!("/{}'", key_id));
         } else {
-            path.push_str(&format!(
-                "{}/{}/{}/{}/{}",
-                entity_type as u32, entity_id_low, entity_id_high, version_low, version_high
-            ));
+            path.push_str(&format!("/{}", key_id));
         }
 
         path
     }
-
-    pub fn parse_derivation_path(path: &str) -> Option<(EntityType, i64, i64, bool)> {
-        let parts: Vec<&str> = path.split('/').collect();
-        if parts.len() != 6 {
-            return None;
-        }
-
-        let hardened = parts[1].ends_with('\'');
-
-        let key_type = match parts[2].trim_end_matches('\'').parse::<u32>() {
-            Ok(0) => EntityType::User,
-            Ok(1) => EntityType::Client,
-            _ => return None,
-        };
-
-        let entity_id_low = match parts[3].trim_end_matches('\'').parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return None,
-        };
-        let entity_id_high = match parts[4].trim_end_matches('\'').parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return None,
-        };
-        let entity_id = combine_u32(entity_id_low, entity_id_high);
-
-        let version_low = match parts[5].trim_end_matches('\'').parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return None,
-        };
-        let version_high = match parts[6].trim_end_matches('\'').parse::<u32>() {
-            Ok(val) => val,
-            Err(_) => return None,
-        };
-        let version = combine_u32(version_low, version_high);
-
-        Some((key_type, entity_id, version, hardened))
-    }
-}
-
-fn split_i64(value: i64) -> (u32, u32) {
-    let bits = value as u64;
-    let low = bits as u32;
-    let high = (bits >> 32) as u32;
-    (low, high)
-}
-
-fn combine_u32(low: u32, high: u32) -> i64 {
-    let bits = ((high as u64) << 32) | (low as u64);
-    bits as i64
 }

@@ -137,7 +137,7 @@ mod tests {
             client_id: "client-1".to_string(),
             redirect_uri: Some("https://example.com/callback".to_string()),
             scope: Some("openid".to_string()),
-            state: "state".to_string(),
+            state: Some("state".to_string()),
             resource: None,
             code_challenge: None,
             code_challenge_method: None,

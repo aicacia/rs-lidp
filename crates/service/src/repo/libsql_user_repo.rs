@@ -9,22 +9,26 @@ use model::{
 
 use crate::{
     PasswordConfig,
-    repo::{LibSqlKeyRepo, RepoError, RepoResult, UserRepo},
+    repo::{KeyService, LibSqlKeyRepo, RepoError, RepoResult, UserRepo},
     util::encrypt_password,
 };
 
 pub struct LibSqlUserRepo {
     database: Arc<Database>,
+    key_service: Arc<KeyService<LibSqlKeyRepo>>,
     password_config: PasswordConfig,
-    libsql_key_repo: Arc<LibSqlKeyRepo>,
 }
 
 impl LibSqlUserRepo {
-    pub fn new(database: Arc<Database>, password_config: PasswordConfig) -> Self {
+    pub fn new(
+        database: Arc<Database>,
+        key_service: Arc<KeyService<LibSqlKeyRepo>>,
+        password_config: PasswordConfig,
+    ) -> Self {
         Self {
-            libsql_key_repo: Arc::new(LibSqlKeyRepo::new(database.clone())),
-            password_config,
             database,
+            key_service,
+            password_config,
         }
     }
 }
@@ -169,7 +173,7 @@ impl UserRepo for LibSqlUserRepo {
     ) -> RepoResult<User> {
         let connection = self.database.connect()?;
 
-        let libsql_key_repo = self.libsql_key_repo.clone();
+        let key_service = self.key_service.clone();
 
         let username = username.to_string();
         let email = email.to_string();
@@ -229,8 +233,17 @@ impl UserRepo for LibSqlUserRepo {
                     libsql::Error::Misuse(format!("invalid rows returned for user password: {}", e))
                 })?;
 
-                libsql_key_repo
-                    .tx_create_key(EntityType::User, user.id, true, username, None, transaction)
+                key_service
+                    .key_repo()
+                    .tx_create_key(
+                        None,
+                        EntityType::User,
+                        user.id,
+                        true,
+                        username,
+                        None,
+                        transaction,
+                    )
                     .await
                     .map_err(RepoError::into_libsql)?;
 

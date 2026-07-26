@@ -1,15 +1,18 @@
 <script lang="ts" module>
-	const RESPONSE_TYPES = ["id_token", "token", "code"] as const;
-	const RESPONSE_MODES = ["query", "fragment", "form_post"] as const;
+	const RESPONSE_TYPES = ["code"] as const;
+	const RESPONSE_MODES = ["query"] as const;
 </script>
 
 <script lang="ts">
+	import type {
+		AuthorizationRequest,
+		CodeChallengeMethod,
+	} from "@aicacia/lidp-client";
 	import { page } from "$app/state";
 	import { m } from "$lib/paraglide/messages";
-	import type { AuthorizeRequest } from "$lib/proto/mises.js";
 	import Authorize from "./_Authorize.svelte";
 
-	import { rejectAuthorizeRequest } from "./_utils";
+	import { rejectAuthorizationRequest } from "./_utils";
 
 	let { data } = $props();
 
@@ -25,18 +28,21 @@
 	let urlCodeChallenge = $derived(
 		page.url.searchParams.get("code_challenge") ?? undefined,
 	);
-	let urlCodeChallengeMethod = $derived(
-		page.url.searchParams.get("code_challenge_method") ?? undefined,
+	let urlRegistration = $derived(
+		page.url.searchParams.get("registration") ?? undefined,
 	);
-
-	// registration is handled on its own page now
+	let urlCodeChallengeMethod = $derived<CodeChallengeMethod | undefined>(
+		(page.url.searchParams.get(
+			"code_challenge_method",
+		) as CodeChallengeMethod) ?? undefined,
+	);
 
 	let responseTypeError = $state<string>();
 	let responseModeError = $state<string>();
 	let scopeError = $state<string>();
 	let redirectUriError = $state<string>();
 
-	let authorizeRequest = $state<AuthorizeRequest>();
+	let authorizationRequest = $state<AuthorizationRequest>();
 
 	$effect(() => {
 		if (!urlResponseType) {
@@ -75,15 +81,15 @@
 			redirectUriError ||
 			scopeError
 		) {
-			authorizeRequest = undefined;
+			authorizationRequest = undefined;
 			return;
 		}
-		authorizeRequest = {
+		authorizationRequest = {
 			clientId: urlClientId ?? "unknown",
 			responseType: urlResponseType as (typeof RESPONSE_TYPES)[number],
 			responseMode: urlResponseMode as (typeof RESPONSE_MODES)[number],
-			redirectUri: urlRedirectUri!,
-			scope: urlScope!,
+			redirectUri: urlRedirectUri,
+			scope: urlScope,
 			state: urlState,
 			nonce: urlNonce,
 			codeChallenge: urlCodeChallenge,
@@ -96,7 +102,7 @@
 			window.close();
 			return;
 		}
-		rejectAuthorizeRequest(
+		rejectAuthorizationRequest(
 			{
 				redirectUri: urlRedirectUri,
 				state: urlState,
@@ -111,8 +117,12 @@
 <div class="overflow-auto">
 	<div class="m-8 flex grow flex-col items-center justify-center">
 		<div class="card w-md">
-			{#if authorizeRequest}
-				<Authorize {userInfo} {authorizeRequest} />
+			{#if authorizationRequest}
+				<Authorize
+					{userInfo}
+					{authorizationRequest}
+					registration={urlRegistration}
+				/>
 			{:else}
 				<section>
 					<h5>{m.authorize_invalid_request()}</h5>
@@ -144,7 +154,7 @@
 					</ul>
 					<div>
 						<div class="mt-4 flex flex-row justify-center gap-4">
-							<button class="btn secondary" onclick={onReject}
+							<button type="button" class="btn secondary" onclick={onReject}
 								>{m.authorize_button_deny()}</button
 							>
 						</div>

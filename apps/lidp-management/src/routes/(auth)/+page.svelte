@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
-	import { logout } from "$lib/common/state/auth.svelte";
 	import { m } from "$lib/paraglide/messages";
 	import type { PageProps } from "./$types";
 
@@ -17,7 +16,6 @@
 	);
 
 	async function onSignOut() {
-		await logout();
 		goto(resolve("/signin"));
 	}
 </script>

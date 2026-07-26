@@ -4,8 +4,8 @@ use libsql::Database;
 use service::{
     oauth2::OAuth2Service,
     repo::{
-        LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo, LibSqlUserRepo,
-        MasterKeyKeyringRepo,
+        LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
+        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
     },
 };
 
@@ -19,7 +19,7 @@ pub struct RouterState {
             LibSqlKeyRepo,
             LibSqlOAuth2AuthorizationCodeRepo,
             LibSqlUserRepo,
-            MasterKeyKeyringRepo,
+            LibSqlOAuth2UserConsentRepo,
         >,
     >,
 }
@@ -34,7 +34,7 @@ impl RouterState {
                 LibSqlKeyRepo,
                 LibSqlOAuth2AuthorizationCodeRepo,
                 LibSqlUserRepo,
-                MasterKeyKeyringRepo,
+                LibSqlOAuth2UserConsentRepo,
             >,
         >,
     ) -> Self {

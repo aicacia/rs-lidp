@@ -56,6 +56,7 @@ impl OAuth2Config {
             token_endpoint: Some(format!("{issuer}/oauth2/token")),
             jwks_uri: Some(format!("{issuer}/.well-known/jwks.json")),
             registration_endpoint: Some(format!("{issuer}/oauth2/register")),
+            userinfo_endpoint: Some(format!("{issuer}/userinfo")),
             scopes_supported: vec![
                 "openid".to_string(),
                 "profile".to_string(),

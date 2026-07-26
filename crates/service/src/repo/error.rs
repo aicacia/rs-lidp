@@ -1,5 +1,6 @@
 use core::error::Error;
 
+use key::DerivationPath;
 use model::contract::{ErrorCode, ErrorResponse};
 
 #[derive(Debug, thiserror::Error)]
@@ -12,8 +13,19 @@ pub enum RepoError {
     Key(#[from] key::KeyError),
     #[error("invalid input: {0}")]
     InvalidInput(String),
+    #[error("no access to key: {0}")]
+    NoAccessToKey(DerivationPath),
     #[error("{0}")]
     Other(#[from] Box<dyn Error + Send + Sync>),
+}
+
+impl RepoError {
+    pub fn other<E>(error: E) -> Self
+    where
+        E: Into<Box<dyn Error + Send + Sync>>,
+    {
+        RepoError::Other(error.into())
+    }
 }
 
 impl From<keyring_core::Error> for RepoError {

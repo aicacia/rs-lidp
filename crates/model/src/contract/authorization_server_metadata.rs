@@ -40,6 +40,10 @@ pub struct AuthorizationServerMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registration_endpoint: Option<String>,
 
+    /// URL of the UserInfo endpoint.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub userinfo_endpoint: Option<String>,
+
     /// RECOMMENDED. List of supported OAuth 2.0 scope values.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scopes_supported: Vec<String>,

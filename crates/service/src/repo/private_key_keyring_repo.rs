@@ -3,18 +3,18 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use key::MasterKey;
+use key::{DerivationPath, DerivedKey};
 use keyring_core::Entry;
 
-use crate::repo::{MasterKeyRepo, RepoResult};
+use crate::repo::{PrivateKeyRepo, RepoError, RepoResult};
 
 static SET_CREDENTIAL_STORE: AtomicBool = AtomicBool::new(false);
 
-pub struct MasterKeyKeyringRepo {
+pub struct PrivateKeyKeyringRepo {
     service_name: String,
 }
 
-impl MasterKeyKeyringRepo {
+impl PrivateKeyKeyringRepo {
     pub fn new(service_name: impl Into<String>) -> Self {
         init_credential_store().expect("Failed to initialize credential store");
 
@@ -24,41 +24,51 @@ impl MasterKeyKeyringRepo {
     }
 }
 
-impl MasterKeyRepo for MasterKeyKeyringRepo {
-    async fn load(&self, name: &str) -> RepoResult<Option<MasterKey>> {
-        let entry = Entry::new(&self.service_name, name)?;
+impl PrivateKeyRepo for PrivateKeyKeyringRepo {
+    fn load(
+        &self,
+        namespace: &str,
+        derivation_path: &DerivationPath,
+    ) -> RepoResult<Option<DerivedKey>> {
+        let entry_name = derived_key_entry_name(namespace, &derivation_path.to_string());
+        let entry = create_key_entry(&self.service_name, &entry_name)?;
 
         match entry.get_secret() {
             Ok(secret_bytes) => {
-                let master_key = MasterKey::from_entropy(secret_bytes)?;
-                Ok(Some(master_key))
+                let xprv = String::from_utf8(secret_bytes)
+                    .map_err(|error| RepoError::InvalidInput(error.to_string()))?;
+                Ok(Some(DerivedKey::from_xprv(xprv, derivation_path.clone())?))
             }
             Err(keyring_core::Error::NoEntry) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }
 
-    async fn save<T>(&self, name: &str, seed: T) -> RepoResult<()>
-    where
-        T: AsRef<[u8]>,
-    {
-        let entry = create_entry(&self.service_name, name)?;
-        entry.set_secret(seed.as_ref())?;
+    fn store(&self, namespace: &str, derived_key: &DerivedKey) -> RepoResult<()> {
+        let entry_name =
+            derived_key_entry_name(namespace, &derived_key.derivation_path().to_string());
+        let entry = create_key_entry(&self.service_name, &entry_name)?;
+        entry.set_secret(derived_key.to_xprv_string().as_bytes())?;
         Ok(())
     }
 
-    async fn delete(&self, name: &str) -> RepoResult<()> {
-        let entry = Entry::new(&self.service_name, name)?;
+    fn delete(&self, namespace: &str, derivation_path: &DerivationPath) -> RepoResult<()> {
+        let entry_name = derived_key_entry_name(namespace, &derivation_path.to_string());
+        let entry = create_key_entry(&self.service_name, &entry_name)?;
         entry.delete_credential()?;
         Ok(())
     }
 }
 
-fn create_entry(service: &str, user: &str) -> keyring_core::Result<Entry> {
+fn create_key_entry(service: &str, user: &str) -> keyring_core::Result<Entry> {
     let mut modifiers = HashMap::new();
-    modifiers.insert("target", "OIDC Master Key");
+    modifiers.insert("target", "Local IdP");
     let entry = Entry::new_with_modifiers(service, user, &modifiers)?;
     Ok(entry)
+}
+
+fn derived_key_entry_name(namespace: &str, derivation_path: &str) -> String {
+    format!("{namespace}:{derivation_path}")
 }
 
 fn init_credential_store() -> keyring_core::Result<()> {

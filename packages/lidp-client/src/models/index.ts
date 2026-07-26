@@ -1,15 +1,24 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from './ApproveForUserRequest.js';
+export * from './AuthorizationCodeResponse.js';
+export * from './AuthorizationCodeResponseOneOf.js';
+export * from './AuthorizationCodeResponseOneOf1.js';
+export * from './AuthorizationRequest.js';
 export * from './AuthorizationServerMetadata.js';
 export * from './ClientProfile.js';
 export * from './ClientRegistration.js';
 export * from './ClientType.js';
 export * from './CodeChallengeMethod.js';
 export * from './DeviceAuthorization.js';
+export * from './ErrorCode.js';
+export * from './ErrorResponse.js';
 export * from './GrantType.js';
 export * from './HealthResponse.js';
 export * from './HealthStatus.js';
 export * from './HealthStatusOneOf.js';
+export * from './IsAllowedForUserRequest.js';
+export * from './IsAllowedForUserResponse.js';
 export * from './JwkPublic.js';
 export * from './JwkPublicParameters.js';
 export * from './JwkPublicParametersOneOf.js';

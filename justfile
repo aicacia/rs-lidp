@@ -59,7 +59,7 @@ doc:
     cargo doc --workspace --no-deps
 
 lidp:
-    pnpx portless lidp-api cargo run -p lidp-http-server
+    pnpx portless lidp-api cargo run -p lidp-http-server -- -c config.yaml
 
 unified:
     pnpx portless unified-api cargo run

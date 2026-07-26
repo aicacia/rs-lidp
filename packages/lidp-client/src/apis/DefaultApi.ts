@@ -15,27 +15,51 @@
 
 import * as runtime from '../runtime.js';
 import type {
+  ApproveForUserRequest,
+  AuthorizationCodeResponse,
+  AuthorizationRequest,
   AuthorizationServerMetadata,
   ClientRegistration,
+  CodeChallengeMethod,
   DeviceAuthorization,
   HealthResponse,
+  IsAllowedForUserRequest,
+  IsAllowedForUserResponse,
   Jwks,
+  ResponseMode,
+  ResponseType,
   SubjectTokenType,
   TokenResponse,
   UserInfo,
   VersionResponse,
 } from '../models/index.js';
 import {
+    ApproveForUserRequestFromJSON,
+    ApproveForUserRequestToJSON,
+    AuthorizationCodeResponseFromJSON,
+    AuthorizationCodeResponseToJSON,
+    AuthorizationRequestFromJSON,
+    AuthorizationRequestToJSON,
     AuthorizationServerMetadataFromJSON,
     AuthorizationServerMetadataToJSON,
     ClientRegistrationFromJSON,
     ClientRegistrationToJSON,
+    CodeChallengeMethodFromJSON,
+    CodeChallengeMethodToJSON,
     DeviceAuthorizationFromJSON,
     DeviceAuthorizationToJSON,
     HealthResponseFromJSON,
     HealthResponseToJSON,
+    IsAllowedForUserRequestFromJSON,
+    IsAllowedForUserRequestToJSON,
+    IsAllowedForUserResponseFromJSON,
+    IsAllowedForUserResponseToJSON,
     JwksFromJSON,
     JwksToJSON,
+    ResponseModeFromJSON,
+    ResponseModeToJSON,
+    ResponseTypeFromJSON,
+    ResponseTypeToJSON,
     SubjectTokenTypeFromJSON,
     SubjectTokenTypeToJSON,
     TokenResponseFromJSON,
@@ -45,6 +69,31 @@ import {
     VersionResponseFromJSON,
     VersionResponseToJSON,
 } from '../models/index.js';
+
+export interface ApproveForUserOperationRequest {
+    approveForUserRequest: ApproveForUserRequest;
+}
+
+export interface AuthorizeJsonRequest {
+    authorizationRequest: AuthorizationRequest;
+}
+
+export interface AuthorizeQueryRequest {
+    responseType: ResponseType;
+    clientId: string;
+    redirectUri: string | null;
+    scope: string | null;
+    state: string | null;
+    resource: string | null;
+    codeChallenge: string | null;
+    codeChallengeMethod: CodeChallengeMethod | null;
+    nonce: string | null;
+    prompt: string | null;
+    responseMode: ResponseMode | null;
+    loginHint: string | null;
+    idTokenHint: string | null;
+    uiLocales: string | null;
+}
 
 export interface DeleteRegisterRequest {
     clientId: string;
@@ -57,6 +106,10 @@ export interface DeviceAuthRequest {
 
 export interface GetRegisterRequest {
     clientId: string;
+}
+
+export interface IsAllowedForUserOperationRequest {
+    isAllowedForUserRequest: IsAllowedForUserRequest;
 }
 
 export interface PutRegisterRequest {
@@ -102,27 +155,55 @@ export interface TokenRequest {
 export interface DefaultApiInterface {
     /**
      * 
+     * @param {ApproveForUserRequest} approveForUserRequest 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApiInterface
      */
-    authorizeJsonRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>>;
+    approveForUserRaw(requestParameters: ApproveForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IsAllowedForUserResponse>>;
 
     /**
      */
-    authorizeJson(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+    approveForUser(requestParameters: ApproveForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<IsAllowedForUserResponse>;
 
     /**
      * 
+     * @param {AuthorizationRequest} authorizationRequest 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApiInterface
      */
-    authorizeQueryRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>>;
+    authorizeJsonRaw(requestParameters: AuthorizeJsonRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AuthorizationCodeResponse>>;
 
     /**
      */
-    authorizeQuery(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
+    authorizeJson(requestParameters: AuthorizeJsonRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AuthorizationCodeResponse>;
+
+    /**
+     * 
+     * @param {ResponseType} responseType 
+     * @param {string} clientId 
+     * @param {string} redirectUri redirect URI is optional if the client has only one registered redirect URI
+     * @param {string} scope 
+     * @param {string} state 
+     * @param {string} resource Audience parameter (RFC 8707) to specify the intended recipients of the token.
+     * @param {string} codeChallenge PKCE parameters (RFC 7636) for public clients and enhanced security
+     * @param {CodeChallengeMethod} codeChallengeMethod The method used to derive the code challenge (e.g., \&quot;S256\&quot; or \&quot;plain\&quot;). only required if &#x60;code_challenge&#x60; is present. \&quot;S256\&quot; is strongly recommended in OAuth 2.1 for better security.
+     * @param {string} nonce 
+     * @param {string} prompt 
+     * @param {ResponseMode} responseMode 
+     * @param {string} loginHint 
+     * @param {string} idTokenHint 
+     * @param {string} uiLocales 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    authorizeQueryRaw(requestParameters: AuthorizeQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>>;
+
+    /**
+     */
+    authorizeQuery(requestParameters: AuthorizeQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void>;
 
     /**
      * 
@@ -187,6 +268,19 @@ export interface DefaultApiInterface {
     /**
      */
     health(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<HealthResponse>;
+
+    /**
+     * 
+     * @param {IsAllowedForUserRequest} isAllowedForUserRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    isAllowedForUserRaw(requestParameters: IsAllowedForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IsAllowedForUserResponse>>;
+
+    /**
+     */
+    isAllowedForUser(requestParameters: IsAllowedForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<IsAllowedForUserResponse>;
 
     /**
      * 
@@ -339,11 +433,73 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
     /**
      */
-    async authorizeJsonRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async approveForUserRaw(requestParameters: ApproveForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IsAllowedForUserResponse>> {
+        if (requestParameters['approveForUserRequest'] == null) {
+            throw new runtime.RequiredError(
+                'approveForUserRequest',
+                'Required parameter "approveForUserRequest" was null or undefined when calling approveForUser().'
+            );
+        }
+
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/oauth2/auth/approve-for-user`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: ApproveForUserRequestToJSON(requestParameters['approveForUserRequest']),
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => IsAllowedForUserResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async approveForUser(requestParameters: ApproveForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<IsAllowedForUserResponse> {
+        const response = await this.approveForUserRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     */
+    async authorizeJsonRaw(requestParameters: AuthorizeJsonRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<AuthorizationCodeResponse>> {
+        if (requestParameters['authorizationRequest'] == null) {
+            throw new runtime.RequiredError(
+                'authorizationRequest',
+                'Required parameter "authorizationRequest" was null or undefined when calling authorizeJson().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/oauth2/auth`;
 
@@ -352,26 +508,140 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: AuthorizationRequestToJSON(requestParameters['authorizationRequest']),
         }, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse(response, (jsonValue) => AuthorizationCodeResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async authorizeJson(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.authorizeJsonRaw(initOverrides);
+    async authorizeJson(requestParameters: AuthorizeJsonRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<AuthorizationCodeResponse> {
+        const response = await this.authorizeJsonRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
      */
-    async authorizeQueryRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async authorizeQueryRaw(requestParameters: AuthorizeQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters['responseType'] == null) {
+            throw new runtime.RequiredError(
+                'responseType',
+                'Required parameter "responseType" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['clientId'] == null) {
+            throw new runtime.RequiredError(
+                'clientId',
+                'Required parameter "clientId" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['redirectUri'] == null) {
+            throw new runtime.RequiredError(
+                'redirectUri',
+                'Required parameter "redirectUri" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['scope'] == null) {
+            throw new runtime.RequiredError(
+                'scope',
+                'Required parameter "scope" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['state'] == null) {
+            throw new runtime.RequiredError(
+                'state',
+                'Required parameter "state" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['resource'] == null) {
+            throw new runtime.RequiredError(
+                'resource',
+                'Required parameter "resource" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['codeChallenge'] == null) {
+            throw new runtime.RequiredError(
+                'codeChallenge',
+                'Required parameter "codeChallenge" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['codeChallengeMethod'] == null) {
+            throw new runtime.RequiredError(
+                'codeChallengeMethod',
+                'Required parameter "codeChallengeMethod" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['nonce'] == null) {
+            throw new runtime.RequiredError(
+                'nonce',
+                'Required parameter "nonce" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['prompt'] == null) {
+            throw new runtime.RequiredError(
+                'prompt',
+                'Required parameter "prompt" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['responseMode'] == null) {
+            throw new runtime.RequiredError(
+                'responseMode',
+                'Required parameter "responseMode" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['loginHint'] == null) {
+            throw new runtime.RequiredError(
+                'loginHint',
+                'Required parameter "loginHint" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['idTokenHint'] == null) {
+            throw new runtime.RequiredError(
+                'idTokenHint',
+                'Required parameter "idTokenHint" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
+        if (requestParameters['uiLocales'] == null) {
+            throw new runtime.RequiredError(
+                'uiLocales',
+                'Required parameter "uiLocales" was null or undefined when calling authorizeQuery().'
+            );
+        }
+
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
 
 
         let urlPath = `/oauth2/auth`;
+        urlPath = urlPath.replace(`{${"response_type"}}`, encodeURIComponent(String(requestParameters['responseType'])));
+        urlPath = urlPath.replace(`{${"client_id"}}`, encodeURIComponent(String(requestParameters['clientId'])));
+        urlPath = urlPath.replace(`{${"redirect_uri"}}`, encodeURIComponent(String(requestParameters['redirectUri'])));
+        urlPath = urlPath.replace(`{${"scope"}}`, encodeURIComponent(String(requestParameters['scope'])));
+        urlPath = urlPath.replace(`{${"state"}}`, encodeURIComponent(String(requestParameters['state'])));
+        urlPath = urlPath.replace(`{${"resource"}}`, encodeURIComponent(String(requestParameters['resource'])));
+        urlPath = urlPath.replace(`{${"code_challenge"}}`, encodeURIComponent(String(requestParameters['codeChallenge'])));
+        urlPath = urlPath.replace(`{${"code_challenge_method"}}`, encodeURIComponent(String(requestParameters['codeChallengeMethod'])));
+        urlPath = urlPath.replace(`{${"nonce"}}`, encodeURIComponent(String(requestParameters['nonce'])));
+        urlPath = urlPath.replace(`{${"prompt"}}`, encodeURIComponent(String(requestParameters['prompt'])));
+        urlPath = urlPath.replace(`{${"response_mode"}}`, encodeURIComponent(String(requestParameters['responseMode'])));
+        urlPath = urlPath.replace(`{${"login_hint"}}`, encodeURIComponent(String(requestParameters['loginHint'])));
+        urlPath = urlPath.replace(`{${"id_token_hint"}}`, encodeURIComponent(String(requestParameters['idTokenHint'])));
+        urlPath = urlPath.replace(`{${"ui_locales"}}`, encodeURIComponent(String(requestParameters['uiLocales'])));
 
         const response = await this.request({
             path: urlPath,
@@ -385,8 +655,8 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
     /**
      */
-    async authorizeQuery(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.authorizeQueryRaw(initOverrides);
+    async authorizeQuery(requestParameters: AuthorizeQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.authorizeQueryRaw(requestParameters, initOverrides);
     }
 
     /**
@@ -403,6 +673,14 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/oauth2/register/{client_id}`;
         urlPath = urlPath.replace(`{${"client_id"}}`, encodeURIComponent(String(requestParameters['clientId'])));
@@ -563,6 +841,51 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
     /**
      */
+    async isAllowedForUserRaw(requestParameters: IsAllowedForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<IsAllowedForUserResponse>> {
+        if (requestParameters['isAllowedForUserRequest'] == null) {
+            throw new runtime.RequiredError(
+                'isAllowedForUserRequest',
+                'Required parameter "isAllowedForUserRequest" was null or undefined when calling isAllowedForUser().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/oauth2/auth/allowed-for-user`;
+
+        const response = await this.request({
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+            body: IsAllowedForUserRequestToJSON(requestParameters['isAllowedForUserRequest']),
+        }, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => IsAllowedForUserResponseFromJSON(jsonValue));
+    }
+
+    /**
+     */
+    async isAllowedForUser(requestParameters: IsAllowedForUserOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<IsAllowedForUserResponse> {
+        const response = await this.isAllowedForUserRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     */
     async jwksRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Jwks>> {
         const queryParameters: any = {};
 
@@ -664,6 +987,14 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/oauth2/register/{client_id}`;
         urlPath = urlPath.replace(`{${"client_id"}}`, encodeURIComponent(String(requestParameters['clientId'])));
@@ -702,6 +1033,14 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Authorization", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
 
         let urlPath = `/oauth2/register`;
 

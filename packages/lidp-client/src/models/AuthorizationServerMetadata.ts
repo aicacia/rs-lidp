@@ -218,6 +218,12 @@ export interface AuthorizationServerMetadata {
      * @memberof AuthorizationServerMetadata
      */
     uiLocalesSupported?: Array<string>;
+    /**
+     * URL of the UserInfo endpoint.
+     * @type {string}
+     * @memberof AuthorizationServerMetadata
+     */
+    userinfoEndpoint?: string | null;
 }
 
 /**
@@ -264,6 +270,7 @@ export function AuthorizationServerMetadataFromJSONTyped(json: any, ignoreDiscri
         'tokenEndpointAuthMethodsSupported': json['token_endpoint_auth_methods_supported'] == null ? undefined : ((json['token_endpoint_auth_methods_supported'] as Array<any>).map(TokenEndpointAuthMethodFromJSON)),
         'tokenEndpointAuthSigningAlgValuesSupported': json['token_endpoint_auth_signing_alg_values_supported'] == null ? undefined : json['token_endpoint_auth_signing_alg_values_supported'],
         'uiLocalesSupported': json['ui_locales_supported'] == null ? undefined : json['ui_locales_supported'],
+        'userinfoEndpoint': json['userinfo_endpoint'] == null ? undefined : json['userinfo_endpoint'],
     };
 }
 
@@ -304,6 +311,7 @@ export function AuthorizationServerMetadataToJSONTyped(value?: AuthorizationServ
         'token_endpoint_auth_methods_supported': value['tokenEndpointAuthMethodsSupported'] == null ? undefined : ((value['tokenEndpointAuthMethodsSupported'] as Array<any>).map(TokenEndpointAuthMethodToJSON)),
         'token_endpoint_auth_signing_alg_values_supported': value['tokenEndpointAuthSigningAlgValuesSupported'],
         'ui_locales_supported': value['uiLocalesSupported'],
+        'userinfo_endpoint': value['userinfoEndpoint'],
     };
 }
 

@@ -133,14 +133,15 @@ CREATE INDEX `idx_clients_client_name`
 CREATE TABLE `keys` (
     `id` INTEGER PRIMARY KEY,
 
+    `parent_id` INTEGER
+        REFERENCES `keys`(`id`) ON DELETE CASCADE,
+
     `entity_type` INTEGER NOT NULL,
     `entity_id` INTEGER NOT NULL,
-    `version` INTEGER NOT NULL,
 
-    `name` TEXT NOT NULL,
-
-    `derivation_path` TEXT NOT NULL UNIQUE,
+    `derivation_path` TEXT UNIQUE,
     `hardened` INTEGER NOT NULL,
+    `name` TEXT NOT NULL,
 
     `revoked_at` INTEGER,
     `expires_at` INTEGER,
@@ -149,8 +150,8 @@ CREATE TABLE `keys` (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
-CREATE UNIQUE INDEX `idx_keys_entity_type_entity_id_version`
-    ON `keys`(`entity_type`, `entity_id`, `version`);
+CREATE INDEX `idx_keys_entity_type_entity_id` ON `keys`(`entity_type`, `entity_id`);
+CREATE INDEX `idx_keys_parent_id` ON `keys`(`parent_id`);
 
 CREATE TABLE `oauth2_authorization_codes` (
     `id` INTEGER PRIMARY KEY,
@@ -189,3 +190,25 @@ CREATE INDEX `idx_oauth2_authorization_codes_key_id`
 
 CREATE INDEX `idx_oauth2_authorization_codes_expires`
     ON `oauth2_authorization_codes`(`expires_at`);
+
+CREATE TABLE `oauth2_user_consents` (
+    `id` INTEGER PRIMARY KEY,
+
+    `user_id` INTEGER NOT NULL
+        REFERENCES `users`(`id`) ON DELETE CASCADE,
+
+    `client_id` TEXT NOT NULL
+        REFERENCES `clients`(`client_id`) ON DELETE CASCADE,
+
+    `redirect_uri` TEXT NOT NULL,
+
+    `scope` TEXT NOT NULL,
+
+    `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+    `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+
+    UNIQUE(`user_id`, `client_id`, `redirect_uri`, `scope`)
+);
+
+CREATE INDEX `idx_oauth2_user_consents_user_client`
+    ON `oauth2_user_consents`(`user_id`, `client_id`);

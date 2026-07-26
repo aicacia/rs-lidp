@@ -1,9 +1,8 @@
-import icon256x256Png from '$lib/assets/icon256x256.png';
-import { env } from '$env/dynamic/public';
-import { createStorage } from '@aicacia/svelte-headless';
-import { OidcClient } from '@aicacia/oidc-client';
-import { getLIdpApiUrl } from './lidpClient.svelte';
-import { isTauri } from '@tauri-apps/api/core';
+import { OidcClient } from "@aicacia/oidc-client";
+import { isTauri } from "@tauri-apps/api/core";
+import { env } from "$env/dynamic/public";
+import icon256x256Png from "$lib/assets/icon256x256.png";
+import { getLIdpApiUrl } from "./lidpClient.svelte";
 
 const oidcClient = $derived.by(
     () =>
@@ -11,7 +10,9 @@ const oidcClient = $derived.by(
             clientConfig: {
                 authority: getLIdpApiUrl()?.toString() ?? "lidp://app",
                 redirectUri: `${env.PUBLIC_URL}/callback`,
-                clientId: isTauri() ? "lidp-management-desktop" : "lidp-management-web",
+                clientId: isTauri()
+                    ? "lidp-management-desktop"
+                    : "lidp-management-web",
                 responseType: "code",
                 registration: {
                     clientId: "mises-simple-example",
@@ -36,14 +37,10 @@ const oidcClient = $derived.by(
 );
 
 export function getOidcClient() {
-	return oidcClient;
+    return oidcClient;
 }
 
 export async function signin() {
-	const client = oidcClient;
-	return await client.signin();
+    const client = oidcClient;
+    return await client.signin();
 }
-
-oidcClient.on('registered', (registration) => {
-	clientIdStorage.item = registration.client_id ?? null;
-});

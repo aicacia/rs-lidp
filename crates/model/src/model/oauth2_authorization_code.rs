@@ -13,7 +13,7 @@ pub struct OAuth2AuthorizationCode {
 
     pub client_id: String,
 
-    pub key_id: i64,
+    pub key_id: u32,
 
     pub redirect_uri: String,
 

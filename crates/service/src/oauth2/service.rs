@@ -2,66 +2,78 @@
 use alloc::{
     format,
     string::{String, ToString},
+    sync::Arc,
     vec,
     vec::Vec,
 };
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use model::contract::{
-    AccessToken, AuthorizationCodeResponse, AuthorizationRequest, AuthorizationServerMetadata,
-    ClientRegistration, ClientType, DeviceAuthorization, DeviceAuthorizationRequest, EntityType,
-    ErrorCode, ErrorResponse, ErrorResponseResult, GrantType, IdToken, IdTokenClaims, JwkPublic,
-    Jwks, OAuth2ClientAuth, RefreshToken, RevocationRequest, StandardClaims, SubjectTokenType,
-    TokenRequest, TokenResponse, TokenType, TokenUse, UserInfo,
+use model::model::{Client, Key};
+use model::{
+    contract::{
+        AccessToken, ApproveForUserRequest, AuthorizationCodeResponse, AuthorizationRequest,
+        AuthorizationServerMetadata, ClientRegistration, ClientType, DeviceAuthorization,
+        DeviceAuthorizationRequest, EntityType, ErrorCode, ErrorResponse, ErrorResponseResult,
+        GrantType, IdToken, IdTokenClaims, IsAllowedForUserRequest, IsAllowedForUserResponse,
+        JwkPrivate, JwkPublic, Jwks, OAuth2ClientAuth, RefreshToken, RevocationRequest,
+        StandardClaims, SubjectTokenType, TokenRequest, TokenResponse, TokenType, TokenUse,
+        UserInfo,
+    },
+    model::User,
 };
-use model::model::Client;
 
 use crate::{
     oauth2::{Principal, UserPrincipal, decode_jwt, encode_jwt},
-    repo::{ClientRepo, KeyRepo, MasterKeyRepo, OAuth2AuthorizationCodeRepo, UserRepo},
+    repo::{
+        ClientRepo, KeyRepo, KeyService, OAuth2AuthorizationCodeRepo, OAuth2UserConsentRepo,
+        PrivateKeyRepo, UserRepo,
+    },
     util::{generate_random_string, verify_password},
 };
 
 use super::{
     OAuth2Config, intersect_scopes, parse_scopes, resolve_redirect_uri,
-    validate_authorization_code_grant, validate_authorization_request, verify_code_challenge,
+    validate_authorization_code_grant, validate_authorization_request, validate_scopes,
+    verify_code_challenge,
 };
 
-pub struct OAuth2Service<C, K, A, U, M> {
+pub struct OAuth2Service<C, K, A, U, G> {
     pub client_repo: C,
-    pub key_repo: K,
     pub authorization_code_repo: A,
-    pub master_key_repo: M,
     pub user_repo: U,
+    pub oauth2_user_consent_repo: G,
+    pub key_service: Arc<KeyService<K>>,
     pub oauth_config: OAuth2Config,
-    pub master_key_name: String,
+    pub key_namespace: String,
 }
 
-impl<C, K, A, U, M> OAuth2Service<C, K, A, U, M>
+impl<C, K, A, U, G> OAuth2Service<C, K, A, U, G>
 where
     C: ClientRepo,
     K: KeyRepo,
     A: OAuth2AuthorizationCodeRepo,
     U: UserRepo,
-    M: MasterKeyRepo,
+    G: OAuth2UserConsentRepo,
 {
     pub fn new(
         client_repo: C,
-        key_repo: K,
         authorization_code_repo: A,
         user_repo: U,
-        master_key_repo: M,
+        oauth2_user_consent_repo: G,
+        key_service: Arc<KeyService<K>>,
         oauth_config: OAuth2Config,
-        master_key_name: String,
+        key_namespace: String,
     ) -> Self {
         Self {
             client_repo,
-            key_repo,
             authorization_code_repo,
             user_repo,
-            master_key_repo,
+            oauth2_user_consent_repo,
+            key_service,
             oauth_config,
-            master_key_name,
+            key_namespace,
         }
     }
 
@@ -185,6 +197,28 @@ where
             .map(parse_scopes)
             .unwrap_or_default();
         let scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+        let normalized_scope = Self::normalize_scopes(&scopes);
+
+        if principal.get_entity_type() != EntityType::User {
+            return Err(ErrorResponse::new(ErrorCode::AccessDenied)
+                .with_description("only users can authorize clients"));
+        }
+
+        let consent = self
+            .oauth2_user_consent_repo
+            .find_user_consent(
+                principal.get_entity_id(),
+                &client.client_id,
+                &redirect_uri,
+                &normalized_scope,
+            )
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        if consent.is_none() {
+            return Err(ErrorResponse::new(ErrorCode::AccessDenied)
+                .with_description("client approval required"));
+        }
 
         let authorization_code = self
             .authorization_code_repo
@@ -207,6 +241,92 @@ where
             code: authorization_code.code,
             state: request.state,
             issuer: Some(self.oauth_config.issuer.clone()),
+        })
+    }
+
+    pub async fn approve_for_user<PT: Principal + ?Sized>(
+        &self,
+        request: ApproveForUserRequest,
+        principal: &PT,
+    ) -> ErrorResponseResult<IsAllowedForUserResponse> {
+        if principal.get_entity_type() != EntityType::User {
+            return Err(ErrorResponse::new(ErrorCode::AccessDenied)
+                .with_description("only users can approve clients"));
+        }
+
+        let client = self
+            .client_repo
+            .find_client_by_client_id(&request.client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+
+        if !client.redirect_uris.contains(&request.redirect_uri) {
+            return Err(ErrorResponse::new(ErrorCode::InvalidRequest)
+                .with_description("redirect_uri is not allowed for this client"));
+        }
+
+        let requested_scopes = parse_scopes(&request.scope);
+        validate_scopes(&requested_scopes, &client.allowed_scopes)?;
+        let effective_scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+        let normalized_scope = Self::normalize_scopes(&effective_scopes);
+
+        self.oauth2_user_consent_repo
+            .upsert_user_consent(
+                principal.get_entity_id(),
+                &client.client_id,
+                &request.redirect_uri,
+                &normalized_scope,
+            )
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        Ok(IsAllowedForUserResponse { allowed: true })
+    }
+
+    pub async fn is_allowed_for_user<PT: Principal + ?Sized>(
+        &self,
+        request: IsAllowedForUserRequest,
+        principal: &PT,
+    ) -> ErrorResponseResult<IsAllowedForUserResponse> {
+        if principal.get_entity_type() != EntityType::User {
+            return Err(ErrorResponse::new(ErrorCode::AccessDenied)
+                .with_description("only users can check client approval"));
+        }
+
+        let client = self
+            .client_repo
+            .find_client_by_client_id(&request.client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+
+        if !client.redirect_uris.contains(&request.redirect_uri) {
+            return Ok(IsAllowedForUserResponse { allowed: false });
+        }
+
+        let requested_scopes = parse_scopes(&request.scope);
+        validate_scopes(&requested_scopes, &client.allowed_scopes)?;
+        let effective_scopes = intersect_scopes(&requested_scopes, &client.allowed_scopes);
+        let normalized_scope = Self::normalize_scopes(&effective_scopes);
+
+        let consent = self
+            .oauth2_user_consent_repo
+            .find_user_consent(
+                principal.get_entity_id(),
+                &client.client_id,
+                &request.redirect_uri,
+                &normalized_scope,
+            )
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        Ok(IsAllowedForUserResponse {
+            allowed: consent.is_some(),
         })
     }
 
@@ -263,8 +383,9 @@ where
                 }
 
                 let key = self
-                    .key_repo
-                    .active_by_entity_type_and_id(EntityType::User, user.id)
+                    .key_service
+                    .key_repo()
+                    .find_by_entity_type_and_id(EntityType::User, user.id)
                     .await
                     .map_err(ErrorResponse::from)?
                     .ok_or_else(|| {
@@ -416,7 +537,8 @@ where
                         .with_description("refresh token is expired"));
                 }
                 let key = self
-                    .key_repo
+                    .key_service
+                    .key_repo()
                     .find_by_id(jwt_header.kid)
                     .await?
                     .ok_or_else(|| {
@@ -428,7 +550,7 @@ where
 
                 let client = self
                     .client_repo
-                    .find_client_by_client_id(&refresh_token.client_id)
+                    .find_client_by_client_id(&refresh_token.aud)
                     .await
                     .map_err(ErrorResponse::from)?
                     .ok_or_else(|| {
@@ -492,7 +614,8 @@ where
                 }
 
                 let key = self
-                    .key_repo
+                    .key_service
+                    .key_repo()
                     .find_by_id(jwt_header.kid)
                     .await?
                     .ok_or_else(|| {
@@ -504,7 +627,7 @@ where
 
                 let client = self
                     .client_repo
-                    .find_client_by_client_id(&subject_token.client_id)
+                    .find_client_by_client_id(&subject_token.aud)
                     .await
                     .map_err(ErrorResponse::from)?
                     .ok_or_else(|| {
@@ -557,6 +680,13 @@ where
             .with_description("client is not authorized for this grant type"))
     }
 
+    fn normalize_scopes(scopes: &[String]) -> String {
+        let mut normalized = scopes.to_vec();
+        normalized.sort();
+        normalized.dedup();
+        normalized.join(" ")
+    }
+
     fn authenticate_client_for_token_endpoint(
         &self,
         client: &Client,
@@ -607,26 +737,15 @@ where
 
     pub async fn list_jwks(&self) -> ErrorResponseResult<Jwks> {
         let keys = self
-            .key_repo
+            .key_service
+            .key_repo()
             .list_active()
             .await
             .map_err(ErrorResponse::from)?;
 
-        let master_key = self
-            .master_key_repo
-            .load(&self.master_key_name)
-            .await
-            .map_err(|error| {
-                ErrorResponse::new(ErrorCode::ServerError).with_description(error.to_string())
-            })?
-            .ok_or_else(|| {
-                ErrorResponse::new(ErrorCode::ServerError)
-                    .with_description("master key is not configured")
-            })?;
-
         let mut jwks = Vec::new();
         for key in keys {
-            if let Ok(jwk) = key.to_jwk_private(&master_key) {
+            if let Ok(jwk) = self.load_signing_jwk(&key).await {
                 jwks.push(JwkPublic::from(jwk));
             }
         }
@@ -636,6 +755,18 @@ where
 
     pub fn metadata(&self) -> AuthorizationServerMetadata {
         self.oauth_config.to_metadata()
+    }
+
+    async fn load_signing_jwk(&self, key: &Key) -> ErrorResponseResult<JwkPrivate> {
+        if let Some(private_key) = self
+            .key_service
+            .private_key_repo()
+            .load(&self.key_namespace, &key.derivation_path()?)?
+        {
+            return Ok(key.to_jwk_private(&private_key)?);
+        }
+        return Err(ErrorResponse::new(ErrorCode::ServerError)
+            .with_description("signing key not found in private key repository"));
     }
 
     pub fn device_authorization(
@@ -670,18 +801,7 @@ where
         resource: Option<&str>,
     ) -> ErrorResponseResult<TokenResponse> {
         let now = Utc::now();
-        let master_key = self
-            .master_key_repo
-            .load(&self.master_key_name)
-            .await
-            .map_err(|error| {
-                ErrorResponse::new(ErrorCode::ServerError).with_description(error.to_string())
-            })?
-            .ok_or_else(|| {
-                ErrorResponse::new(ErrorCode::ServerError)
-                    .with_description("master key is not configured")
-            })?;
-        let signing_jwk = principal.get_key().to_jwk_private(&master_key)?;
+        let signing_jwk = self.load_signing_jwk(principal.get_key()).await?;
         let scope = if scopes.is_empty() {
             None
         } else {
@@ -696,7 +816,6 @@ where
             nbf: now.timestamp(),
             iss: self.oauth_config.issuer.clone(),
             aud: client.client_id.clone(),
-            client_id: client.client_id.clone(),
             sub: principal.get_key().id.to_string(),
             scope: scopes.to_vec(),
             resource: resource.map(|r| r.to_string()),
@@ -704,14 +823,21 @@ where
 
         let access_token_value = encode_jwt(&signing_jwk, &access_claims)?;
 
+        let user_info = match principal.get_entity_type() {
+            EntityType::User => principal
+                .get_entity_as_any()
+                .downcast_ref::<User>()
+                .cloned()
+                .map(User::into),
+            _ => None,
+        };
+
         let id_token = IdTokenClaims {
             standard_claims: StandardClaims {
                 r#use: TokenUse::Id,
                 ..access_claims.clone()
             },
-            // TODO: Populate user info claims based on the principal,
-            //       we need to rethink this for other principals like service accounts, etc.
-            user_info: UserInfo::default(),
+            user_info,
         };
 
         let id_token_value = encode_jwt(&signing_jwk, &id_token)?;
@@ -773,9 +899,9 @@ where
 
     pub async fn find_principal(
         &self,
-        key_id: i64,
+        key_id: u32,
     ) -> ErrorResponseResult<Option<Box<dyn Principal>>> {
-        let key = if let Some(key) = self.key_repo.find_by_id(key_id).await? {
+        let key = if let Some(key) = self.key_service.key_repo().find_by_id(key_id).await? {
             key
         } else {
             return Ok(None);

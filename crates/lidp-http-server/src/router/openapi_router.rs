@@ -7,6 +7,9 @@ use crate::RouterState;
 
 use super::openapi::{__path_openapi_json, openapi_json};
 use super::routes::health::{__path_health, health};
+use super::routes::oauth2::approvals::{
+    __path_approve_for_user, __path_is_allowed_for_user, approve_for_user, is_allowed_for_user,
+};
 use super::routes::oauth2::auth::{
     __path_authorize_json, __path_authorize_query, authorize_json, authorize_query,
 };
@@ -64,6 +67,8 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
             .routes(routes!(health))
             .routes(routes!(authorize_json))
             .routes(routes!(authorize_query))
+            .routes(routes!(is_allowed_for_user))
+            .routes(routes!(approve_for_user))
             .routes(routes!(device_auth))
             .routes(routes!(device_verify))
             .routes(routes!(register))

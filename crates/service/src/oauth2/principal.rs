@@ -1,3 +1,5 @@
+use core::any::Any;
+
 use model::{
     contract::EntityType,
     model::{Key, User},
@@ -6,6 +8,7 @@ use model::{
 pub trait Principal: Send + Sync {
     fn get_entity_id(&self) -> i64;
     fn get_entity_type(&self) -> EntityType;
+    fn get_entity_as_any(&self) -> &dyn Any;
     fn get_key(&self) -> &Key;
 }
 
@@ -21,6 +24,10 @@ impl Principal for UserPrincipal {
 
     fn get_entity_type(&self) -> EntityType {
         EntityType::User
+    }
+
+    fn get_entity_as_any(&self) -> &dyn Any {
+        &self.user
     }
 
     fn get_key(&self) -> &Key {

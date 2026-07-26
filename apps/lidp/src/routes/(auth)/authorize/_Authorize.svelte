@@ -1,40 +1,125 @@
 <script lang="ts" module>
 	export interface AuthorizeProps {
 		userInfo: UserInfo;
-		authorizeRequest: AuthorizeRequest;
+		authorizationRequest: AuthorizationRequest;
+		registration?: string;
 	}
 </script>
 
 <script lang="ts">
+	import type {
+		AuthorizationRequest,
+		ClientRegistration,
+		UserInfo,
+	} from "@aicacia/lidp-client";
 	import { LoaderCircle } from "@lucide/svelte";
 	import { isTauri } from "@tauri-apps/api/core";
-
 	import { goto } from "$app/navigation";
-	import { clientClient } from "$lib/common/util/grpcClient";
+	import { lidpApi } from "$lib/common/state/lidpClient.svelte";
 	import { m } from "$lib/paraglide/messages";
-	import type { AuthorizeRequest, Client, UserInfo } from "$lib/proto/mises";
 	import AuthorizeClient from "./_AuthorizeClient.svelte";
-	import { rejectAuthorizeRequest, resolveAuthorizeRequest } from "./_utils";
+	import {
+		rejectAuthorizationRequest,
+		resolveAuthorizationRequest,
+	} from "./_utils";
 
-	let { userInfo, authorizeRequest }: AuthorizeProps = $props();
+	let { userInfo, authorizationRequest, registration }: AuthorizeProps =
+		$props();
 
-	let client = $state<Client | null>(null);
+	type CandidateClientRegistration = Partial<ClientRegistration> & {
+		grantTypes?: NonNullable<ClientRegistration["allowedGrantTypes"]>;
+		scope?: string;
+	};
+
+	function asString(value: unknown): string | undefined {
+		return typeof value === "string" ? value : undefined;
+	}
+
+	function asStringArray(value: unknown): Array<string> | undefined {
+		if (!Array.isArray(value)) {
+			return undefined;
+		}
+		return value.filter((entry): entry is string => typeof entry === "string");
+	}
+
+	function normalizeRegistration(
+		value: unknown,
+	): CandidateClientRegistration | undefined {
+		if (!value || typeof value !== "object") {
+			return undefined;
+		}
+		const record = value as Record<string, unknown>;
+		return {
+			clientId: asString(record.clientId ?? record.client_id),
+			clientName: asString(record.clientName ?? record.client_name),
+			profile: asString(record.profile) as ClientRegistration["profile"],
+			tokenEndpointAuthMethod: asString(
+				record.tokenEndpointAuthMethod ?? record.token_endpoint_auth_method,
+			) as ClientRegistration["tokenEndpointAuthMethod"],
+			redirectUris: asStringArray(record.redirectUris ?? record.redirect_uris),
+			allowedGrantTypes: asStringArray(
+				record.allowedGrantTypes ?? record.allowed_grant_types,
+			) as ClientRegistration["allowedGrantTypes"],
+			grantTypes: asStringArray(
+				record.grantTypes ?? record.grant_types,
+			) as CandidateClientRegistration["grantTypes"],
+			responseTypes: asStringArray(
+				record.responseTypes ?? record.response_types,
+			) as ClientRegistration["responseTypes"],
+			allowedScopes: asStringArray(
+				record.allowedScopes ?? record.allowed_scopes,
+			),
+			scope: asString(record.scope),
+			clientType: asString(
+				record.clientType ?? record.client_type,
+			) as ClientRegistration["clientType"],
+			clientUri: asString(record.clientUri ?? record.client_uri),
+			logoUri: asString(record.logoUri ?? record.logo_uri),
+			policyUri: asString(record.policyUri ?? record.policy_uri),
+			tosUri: asString(record.tosUri ?? record.tos_uri),
+			contacts: asStringArray(record.contacts),
+		};
+	}
+
+	function parseRegistration(
+		value?: string,
+	): CandidateClientRegistration | undefined {
+		if (!value) {
+			return undefined;
+		}
+		try {
+			return normalizeRegistration(JSON.parse(value));
+		} catch (e) {
+			console.error("Failed to parse registration query param", e);
+			return undefined;
+		}
+	}
+
+	function splitScope(scope?: string): Array<string> {
+		return (scope ?? "").split(/\s+/).filter((entry) => entry.length > 0);
+	}
+
+	let registrationCandidate = $derived(parseRegistration(registration));
+
+	let client = $state<ClientRegistration | null>(null);
 
 	let loadingClient = $state(true);
 	$effect(() => {
 		loadingClient = true;
-		if (authorizeRequest.clientId === "unknown") {
-			console.debug("Client ID is unknown, skipping client info fetch");
+		if (authorizationRequest.clientId === "unknown") {
+			console.debug(
+				"ClientRegistration ID is unknown, skipping client info fetch",
+			);
 			client = null;
 			loadingClient = false;
 			return;
 		}
 		console.debug(
 			"Fetching client info for clientId",
-			authorizeRequest.clientId,
+			authorizationRequest.clientId,
 		);
-		clientClient()
-			.get({ clientId: authorizeRequest.clientId })
+		lidpApi
+			.getRegister({ clientId: authorizationRequest.clientId })
 			.catch((_e) => null)
 			.then((c) => {
 				client = c;
@@ -51,7 +136,9 @@
 			return;
 		}
 		if (!client) {
-			console.debug("Client info not available, skipping user allowed check");
+			console.debug(
+				"ClientRegistration info not available, skipping user allowed check",
+			);
 			loadingUserAllowed = false;
 			return;
 		}
@@ -59,12 +146,19 @@
 		console.debug(
 			"Checking if user has already allowed this client and scopes",
 		);
-		clientClient()
+		lidpApi
 			.isAllowedForUser({
-				clientId: authorizeRequest.clientId,
-				scope: authorizeRequest.scope ?? "",
+   			    isAllowedForUserRequest: {
+    				clientId: authorizationRequest.clientId,
+    				redirectUri: authorizationRequest.redirectUri ?? "",
+    				scope: authorizationRequest.scope ?? "",
+     			},
 			})
-			.then(onAuthorize)
+			.then((response) => {
+				if (response.allowed) {
+					onAuthorize();
+				}
+			})
 			.catch(() => {
 				// Not yet approved or scopes changed; fall back to consent screen
 			})
@@ -73,28 +167,33 @@
 			});
 	});
 
-	let loadingAuthorizeRequest = $state(false);
+	let loadingAuthorizationRequest = $state(false);
+	let loadingRegistration = $state(false);
 	async function onAuthorize() {
-		loadingAuthorizeRequest = true;
+		loadingAuthorizationRequest = true;
 		console.debug(
 			"Resolving authorize request for clientId",
-			authorizeRequest.clientId,
+			authorizationRequest.clientId,
 		);
 		try {
-			await resolveAuthorizeRequest(authorizeRequest);
+			await resolveAuthorizationRequest(authorizationRequest);
 			if (isTauri()) {
 				await goto("/");
 			}
 		} catch (e) {
 			console.error("Error resolving authorize request", e);
 		} finally {
-			loadingAuthorizeRequest = false;
+			loadingAuthorizationRequest = false;
 		}
 	}
 	async function onAllow() {
 		try {
-			await clientClient().approveForUser({
-				clientId: authorizeRequest.clientId,
+			await lidpApi.approveForUser({
+				approveForUserRequest: {
+					clientId: authorizationRequest.clientId,
+					redirectUri: authorizationRequest.redirectUri ?? "",
+					scope: authorizationRequest.scope ?? "",
+				},
 			});
 			await onAuthorize();
 		} catch (e) {
@@ -102,15 +201,74 @@
 		}
 	}
 	async function onDeny() {
-		rejectAuthorizeRequest(
-			authorizeRequest,
+		rejectAuthorizationRequest(
+			authorizationRequest,
 			"access_denied",
 			m.authorize_access_denied_reason(),
 		);
 	}
 
+	async function onRegister() {
+		if (!registrationCandidate) {
+			return;
+		}
+		if (
+			!registrationCandidate.clientName ||
+			!registrationCandidate.profile ||
+			!registrationCandidate.tokenEndpointAuthMethod
+		) {
+			console.error("Registration data missing required fields");
+			return;
+		}
+		loadingRegistration = true;
+		const redirectUris = (
+			registrationCandidate.redirectUris ?? [
+				authorizationRequest.redirectUri ?? "",
+			]
+		).filter((entry) => entry.length > 0);
+		const allowedGrantTypes = (registrationCandidate.allowedGrantTypes ??
+			registrationCandidate.grantTypes ?? [
+				"authorization_code",
+			]) as ClientRegistration["allowedGrantTypes"];
+		const responseTypes = (registrationCandidate.responseTypes ?? [
+			authorizationRequest.responseType,
+		]) as ClientRegistration["responseTypes"];
+		const allowedScopes =
+			registrationCandidate.allowedScopes ??
+			(registrationCandidate.scope
+				? splitScope(registrationCandidate.scope)
+				: undefined) ??
+			splitScope(authorizationRequest.scope ?? "");
+		const payload: ClientRegistration = {
+			clientId: registrationCandidate.clientId ?? authorizationRequest.clientId,
+			clientName: registrationCandidate.clientName,
+			profile: registrationCandidate.profile,
+			tokenEndpointAuthMethod: registrationCandidate.tokenEndpointAuthMethod,
+			redirectUris,
+			allowedGrantTypes,
+			responseTypes,
+			allowedScopes,
+			clientType: registrationCandidate.clientType,
+			clientUri: registrationCandidate.clientUri,
+			logoUri: registrationCandidate.logoUri,
+			policyUri: registrationCandidate.policyUri,
+			tosUri: registrationCandidate.tosUri,
+			contacts: registrationCandidate.contacts,
+		};
+		try {
+			client = await lidpApi.register({ clientRegistration: payload });
+		} catch (e) {
+			console.error("Error registering client", e);
+		} finally {
+			loadingRegistration = false;
+		}
+	}
+
 	let loading = $derived(
-		loadingClient || loadingUserAllowed || loadingAuthorizeRequest,
+		loadingClient ||
+			loadingUserAllowed ||
+			loadingAuthorizationRequest ||
+			loadingRegistration,
 	);
 	let disabled = $derived(loading);
 </script>
@@ -121,12 +279,25 @@
 	</div>
 {:else if client}
 	<AuthorizeClient {userInfo} {client} {disabled} {onAllow} {onDeny} />
+{:else if registrationCandidate}
+	<section>
+		<h5>{m.authorize_new_client_request()}</h5>
+		<p>{m.authorize_client_not_found()}</p>
+		<div class="mt-4 flex flex-row justify-center gap-4">
+			<button type="button" class="btn primary" onclick={onRegister}>
+				{m.client_accept()}
+			</button>
+			<button type="button" class="btn secondary" onclick={onDeny}>
+				{m.client_reject()}
+			</button>
+		</div>
+	</section>
 {:else}
 	<section>
 		<h5>{m.authorize_invalid_request()}</h5>
 		<p>{m.authorize_client_not_found()}</p>
 		<div class="mt-4 flex flex-row justify-center gap-4">
-			<button class="btn secondary" onclick={onDeny}>
+			<button type="button" class="btn secondary" onclick={onDeny}>
 				{m.authorize_button_deny()}
 			</button>
 		</div>

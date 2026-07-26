@@ -1,9 +1,13 @@
+DROP INDEX IF EXISTS "idx_oauth2_user_consents_user_client";
+DROP TABLE IF EXISTS "oauth2_user_consents";
+
 DROP INDEX IF EXISTS "idx_oauth2_authorization_codes_expires";
 DROP INDEX IF EXISTS "idx_oauth2_authorization_codes_key_id";
 DROP INDEX IF EXISTS "idx_oauth2_authorization_codes_client";
 DROP TABLE IF EXISTS "oauth2_authorization_codes";
 
-DROP INDEX IF EXISTS "idx_keys_entity_type_entity_id_version";
+DROP INDEX IF EXISTS "idx_keys_parent_id";
+DROP INDEX IF EXISTS "idx_keys_entity_type_entity_id";
 DROP INDEX IF EXISTS "idx_keys_derivation_path";
 DROP TABLE IF EXISTS "keys";
 

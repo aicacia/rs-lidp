@@ -7,8 +7,8 @@ use service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{
-        LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo, LibSqlUserRepo,
-        MasterKeyKeyringRepo,
+        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
+        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
     },
 };
 use std::{
@@ -57,35 +57,42 @@ pub async fn run() -> io::Result<()> {
     })?;
 
     let database = Arc::new(database);
+    let key_service = Arc::new(KeyService::new(
+        LibSqlKeyRepo::new(database.clone()),
+        PrivateKeyKeyringRepo::new(&app_config.oauth2.issuer),
+        app_config.key_namespace.clone(),
+    ));
 
     let bootstrap_service = BootstrapService::new(
-        LibSqlClientRepo::new(database.clone()),
-        LibSqlKeyRepo::new(database.clone()),
-        LibSqlUserRepo::new(database.clone(), app_config.password.clone()),
-        MasterKeyKeyringRepo::new(&app_config.oauth2.issuer),
-        app_config.master_key_name.clone(),
+        LibSqlClientRepo::new(database.clone(), key_service.clone()),
+        LibSqlUserRepo::new(
+            database.clone(),
+            key_service.clone(),
+            app_config.password.clone(),
+        ),
+        key_service.clone(),
         app_config.bootstrap.clone(),
+        app_config.key_namespace.clone(),
     );
 
     bootstrap_service
         .ensure_system_baseline()
         .await
-        .map_err(|e| {
-            log::error!("failed to bootstrap system baseline: {}", e);
-            io::Error::other(e)
-        })?;
-
-    let master_key_repo = MasterKeyKeyringRepo::new(&app_config.oauth2.issuer);
+        .map_err(io::Error::other)?;
 
     let oauth2_config = app_config.oauth2.clone();
     let oauth2_service = Arc::new(OAuth2Service::new(
-        LibSqlClientRepo::new(database.clone()),
-        LibSqlKeyRepo::new(database.clone()),
+        LibSqlClientRepo::new(database.clone(), key_service.clone()),
         LibSqlOAuth2AuthorizationCodeRepo::new(database.clone()),
-        LibSqlUserRepo::new(database.clone(), app_config.password.clone()),
-        master_key_repo,
+        LibSqlUserRepo::new(
+            database.clone(),
+            key_service.clone(),
+            app_config.password.clone(),
+        ),
+        LibSqlOAuth2UserConsentRepo::new(database.clone()),
+        key_service.clone(),
         oauth2_config,
-        app_config.master_key_name.clone(),
+        app_config.key_namespace.clone(),
     ));
     let router_state = RouterState::new(&app_config.ui_base_url, database.clone(), oauth2_service);
 

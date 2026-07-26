@@ -23,7 +23,7 @@ impl OAuth2AuthorizationCodeRepo for LibSqlOAuth2AuthorizationCodeRepo {
     async fn create_authorization_code(
         &self,
         client_id: String,
-        key_id: i64,
+        key_id: u32,
         redirect_uri: String,
         scopes: Vec<String>,
         resource: Option<String>,
@@ -47,7 +47,7 @@ impl OAuth2AuthorizationCodeRepo for LibSqlOAuth2AuthorizationCodeRepo {
                     code_challenge_method,
                     nonce,
                     expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING *;";
         let params = libsql::params![
             generate_random_string::<32>(),
