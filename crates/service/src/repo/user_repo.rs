@@ -5,6 +5,8 @@ use crate::repo::RepoResult;
 pub trait UserRepo {
     fn find_user_by_id(&self, id: i64) -> impl Future<Output = RepoResult<Option<User>>>;
 
+    fn list_users(&self, offset: u32, limit: u32) -> impl Future<Output = RepoResult<Vec<User>>>;
+
     fn find_user_by_username_or_email(
         &self,
         identifier: &str,
@@ -30,4 +32,28 @@ pub trait UserRepo {
         email: &str,
         password: &str,
     ) -> impl Future<Output = RepoResult<User>>;
+
+    fn update_user(&self, user: User) -> impl Future<Output = RepoResult<User>>;
+
+    fn upsert_primary_user_email(
+        &self,
+        user_id: i64,
+        email: &str,
+        verified: bool,
+    ) -> impl Future<Output = RepoResult<()>>;
+
+    fn upsert_primary_user_phone_number(
+        &self,
+        user_id: i64,
+        phone_number: &str,
+        verified: bool,
+    ) -> impl Future<Output = RepoResult<()>>;
+
+    fn replace_user_password(
+        &self,
+        user_id: i64,
+        password: &str,
+    ) -> impl Future<Output = RepoResult<()>>;
+
+    fn delete_user_by_id(&self, user_id: i64) -> impl Future<Output = RepoResult<()>>;
 }

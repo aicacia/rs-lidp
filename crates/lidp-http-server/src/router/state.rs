@@ -12,6 +12,7 @@ use service::{
 #[derive(Clone)]
 pub struct RouterState {
     pub ui_base_url: String,
+    pub api_base_url: String,
     pub database: Arc<Database>,
     pub oauth2_service: Arc<
         OAuth2Service<
@@ -27,6 +28,7 @@ pub struct RouterState {
 impl RouterState {
     pub fn new(
         ui_base_url: impl Into<String>,
+        api_base_url: impl Into<String>,
         database: Arc<Database>,
         oauth2_service: Arc<
             OAuth2Service<
@@ -40,6 +42,7 @@ impl RouterState {
     ) -> Self {
         Self {
             ui_base_url: ui_base_url.into(),
+            api_base_url: api_base_url.into(),
             database,
             oauth2_service,
         }

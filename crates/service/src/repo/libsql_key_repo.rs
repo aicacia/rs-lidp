@@ -47,6 +47,44 @@ impl KeyRepo for LibSqlKeyRepo {
         Ok(keys)
     }
 
+    async fn list_by_entity_type_and_id(
+        &self,
+        entity_type: EntityType,
+        entity_id: i64,
+    ) -> RepoResult<Vec<Key>> {
+        let conn = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                parent_id,
+                entity_type,
+                entity_id,
+                derivation_path,
+                name,
+                hardened,
+                revoked_at,
+                expires_at,
+                created_at,
+                updated_at
+            FROM keys
+            WHERE entity_type = ? AND entity_id = ?
+                AND (revoked_at IS NULL OR revoked_at > unixepoch())
+                AND (expires_at IS NULL OR expires_at > unixepoch())
+            ORDER BY created_at DESC
+        "#;
+
+        let mut rows = conn
+            .query(query, libsql::params![entity_type as i64, entity_id])
+            .await?;
+        let mut keys = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            keys.push(from_row::<Key>(&row)?);
+        }
+
+        Ok(keys)
+    }
+
     async fn find_by_id(&self, id: u32) -> RepoResult<Option<Key>> {
         let conn = self.database.connect()?;
         let query = r#"

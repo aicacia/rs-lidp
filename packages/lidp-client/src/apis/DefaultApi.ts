@@ -447,14 +447,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/auth/approve-for-user`;
 
@@ -492,14 +484,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/auth`;
 
@@ -673,14 +657,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/register/{client_id}`;
         urlPath = urlPath.replace(`{${"client_id"}}`, encodeURIComponent(String(requestParameters['clientId'])));
@@ -855,14 +831,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/auth/allowed-for-user`;
 
@@ -987,14 +955,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/register/{client_id}`;
         urlPath = urlPath.replace(`{${"client_id"}}`, encodeURIComponent(String(requestParameters['clientId'])));
@@ -1033,14 +993,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/oauth2/register`;
 
@@ -1261,14 +1213,6 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Authorization", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/userinfo`;
 

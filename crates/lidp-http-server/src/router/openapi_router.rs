@@ -1,6 +1,6 @@
-use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
-use utoipa::openapi::{RefOr, Schema};
-use utoipa::{Modify, OpenApi};
+use api::SecurityAddon;
+use utoipa::OpenApi;
+use utoipa::openapi::{Paths, RefOr, Schema, Server};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::RouterState;
@@ -29,28 +29,6 @@ use super::routes::well_known::{
     __path_jwks, __path_openid_configuration, jwks, openid_configuration,
 };
 
-pub const AUTHORIZATION_HEADER: &str = "Authorization";
-
-pub struct SecurityAddon;
-
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        if let Some(components) = openapi.components.as_mut() {
-            components.add_security_scheme(
-                AUTHORIZATION_HEADER,
-                SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Bearer)
-                        .bearer_format("JWT")
-                        .build(),
-                ),
-            );
-        } else {
-            log::warn!("OpenAPI components is None, cannot add security scheme");
-        }
-    }
-}
-
 #[derive(OpenApi)]
 #[openapi(
     info(title = "OAuth Server", version = env!("CARGO_PKG_VERSION")),
@@ -60,10 +38,10 @@ pub(crate) struct ApiDoc;
 
 pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter {
     let prefix = if prefix == "/" { "" } else { prefix };
-    let openapi_router = {
-        let openapi_router = OpenApiRouter::with_openapi(ApiDoc::openapi());
+    let api_base_url = router_state.api_base_url.clone();
 
-        let openapi_routes = OpenApiRouter::new()
+    let routes = || {
+        OpenApiRouter::new()
             .routes(routes!(health))
             .routes(routes!(authorize_json))
             .routes(routes!(authorize_query))
@@ -82,36 +60,50 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
             .routes(routes!(jwks))
             .routes(routes!(openid_configuration))
             .routes(routes!(userinfo))
-            .with_state(router_state);
+    };
 
-        if prefix.is_empty() {
-            openapi_router.merge(openapi_routes)
-        } else {
-            openapi_router.nest(prefix, openapi_routes)
+    let spec_router = OpenApiRouter::with_openapi(ApiDoc::openapi()).merge(routes());
+
+    let mut openapi_spec = spec_router.get_openapi().clone();
+
+    openapi_spec.servers = Some(vec![Server::new(format!("{}{}", api_base_url, prefix))]);
+
+    if !prefix.is_empty() {
+        let mut paths = Paths::new();
+
+        for (path, item) in openapi_spec.paths.paths {
+            let path = path.strip_prefix(prefix).unwrap_or(&path).to_owned();
+
+            paths.paths.insert(path, item);
         }
+
+        openapi_spec.paths = paths;
+    }
+
+    let mut schemas = Vec::<(String, RefOr<Schema>)>::new();
+    let (openapi_json_path, openapi_json_item, openapi_json_types) =
+        routes!(@resolve_types openapi_json : schemas);
+
+    openapi_spec.paths.add_path_operation(
+        openapi_json_path.to_string(),
+        openapi_json_types,
+        openapi_json_item,
+    );
+
+    let runtime_router = if prefix.is_empty() {
+        OpenApiRouter::with_openapi(ApiDoc::openapi()).merge(routes().with_state(router_state))
+    } else {
+        OpenApiRouter::with_openapi(ApiDoc::openapi())
+            .nest(prefix, routes().with_state(router_state))
     };
 
-    let openapi_json_routes = {
-        let mut openapi_spec = openapi_router.get_openapi().clone();
-
-        let mut schemas = Vec::<(String, RefOr<Schema>)>::new();
-        let (openapi_json_path, openapi_json_item, openapi_json_types) =
-            routes!(@resolve_types openapi_json : schemas);
-
-        let openapi_path = format!("{prefix}{openapi_json_path}");
-
-        openapi_spec
-            .paths
-            .add_path_operation(openapi_path, openapi_json_types, openapi_json_item);
-
-        OpenApiRouter::new()
-            .routes(routes!(openapi_json))
-            .with_state(openapi_spec)
-    };
+    let openapi_json_routes = OpenApiRouter::new()
+        .routes(routes!(openapi_json))
+        .with_state(openapi_spec);
 
     if prefix.is_empty() {
-        openapi_router.merge(openapi_json_routes)
+        runtime_router.merge(openapi_json_routes)
     } else {
-        openapi_router.nest(prefix, openapi_json_routes)
+        runtime_router.nest(prefix, openapi_json_routes)
     }
 }

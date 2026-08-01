@@ -94,7 +94,12 @@ pub async fn run() -> io::Result<()> {
         oauth2_config,
         app_config.key_namespace.clone(),
     ));
-    let router_state = RouterState::new(&app_config.ui_base_url, database.clone(), oauth2_service);
+    let router_state = RouterState::new(
+        &app_config.ui_public_url,
+        &app_config.api_public_url,
+        database.clone(),
+        oauth2_service,
+    );
 
     let router = openapi_router(router_state, app_config.server.prefix())
         .layer(CorsLayer::very_permissive().allow_private_network(true))

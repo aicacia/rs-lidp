@@ -96,9 +96,9 @@ importers:
 
   apps/lidp-management:
     dependencies:
-      '@aicacia/lidp-client':
+      '@aicacia/lidp-management-client':
         specifier: workspace:*
-        version: link:../../packages/lidp-client
+        version: link:../../packages/lidp-management-client
       '@aicacia/oidc-client':
         specifier: workspace:*
         version: link:../../packages/oidc-client
@@ -171,6 +171,52 @@ importers:
         version: 1.0.0(vite@8.1.4(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/lidp-client:
+    dependencies:
+      eventemitter3:
+        specifier: ^5.0.4
+        version: 5.0.4
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.5.3
+        version: 2.5.3
+      '@types/benchmark':
+        specifier: ^2.1.5
+        version: 2.1.5
+      '@vitest/coverage-v8':
+        specifier: ^4.1.10
+        version: 4.1.10(vitest@4.1.10)
+      benchmark:
+        specifier: ^2.1.4
+        version: 2.1.4
+      globals:
+        specifier: ^17.7.0
+        version: 17.7.0
+      husky:
+        specifier: ^9.1.7
+        version: 9.1.7
+      rolldown:
+        specifier: ^1.1.5
+        version: 1.1.5
+      shx:
+        specifier: ^0.4.0
+        version: 0.4.0
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@26.1.1)(typescript@7.0.2)
+      tslib:
+        specifier: ^2.8.1
+        version: 2.8.1
+      typedoc:
+        specifier: ^0.28.17
+        version: 0.28.20(typescript@7.0.2)
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.1.1)(@vitest/coverage-v8@4.1.10)(vite@8.1.4(@types/node@26.1.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/lidp-management-client:
     dependencies:
       eventemitter3:
         specifier: ^5.0.4

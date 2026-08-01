@@ -2,13 +2,13 @@ import { OidcClient } from "@aicacia/oidc-client";
 import { isTauri } from "@tauri-apps/api/core";
 import { env } from "$env/dynamic/public";
 import icon256x256Png from "$lib/assets/icon256x256.png";
-import { getLIdpApiUrl } from "./lidpClient.svelte";
+import { getManagementApiBaseUrl } from "./managementClient.svelte";
 
 const oidcClient = $derived.by(
     () =>
         new OidcClient({
             clientConfig: {
-                authority: getLIdpApiUrl()?.toString() ?? "lidp://app",
+                authority: env.PUBLIC_LIDP_BASE_URL || "lidp://app",
                 redirectUri: `${env.PUBLIC_URL}/callback`,
                 clientId: isTauri()
                     ? "lidp-management-desktop"

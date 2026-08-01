@@ -1,17 +1,19 @@
+import { redirect } from "@sveltejs/kit";
 import { resolve } from "$app/paths";
 import {
-  getLIdpApiUrl,
-  validateLIdpApiUrl,
-} from "$lib/common/state/lidpClient.svelte";
-import { redirect } from "@sveltejs/kit";
+    getManagementApiUrl,
+    validateManagementApiUrl,
+} from "$lib/common/state/managementClient.svelte";
 import type { LayoutLoad } from "./$types";
 
 export const load: LayoutLoad = async (event) => {
-  await event.parent();
+    await event.parent();
 
-  let validLIdpApiUrl = await validateLIdpApiUrl(getLIdpApiUrl());
+    const validLIdpApiUrl = await validateManagementApiUrl(
+        getManagementApiUrl(),
+    );
 
-  if (!validLIdpApiUrl) {
-    redirect(302, resolve("/lidp"));
-  }
+    if (!validLIdpApiUrl) {
+        redirect(302, resolve("/lidp"));
+    }
 };

@@ -7,8 +7,9 @@ use service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{
-        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
-        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
+        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlManagementRoleRepo,
+        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
+        PrivateKeyKeyringRepo,
     },
 };
 use std::{
@@ -95,14 +96,25 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let lidp_router_state = lidp_http_server::RouterState::new(
-        &app_config.lidp_ui_base_url,
+        &app_config.ui_public_url,
+        &app_config.api_public_url,
         database.clone(),
+        oauth2_service.clone(),
+    );
+    let lidp_router = lidp_http_server::openapi_router(lidp_router_state, "/lidp");
+
+    let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
+    let management_router_state = lidp_management_server::RouterState::new(
+        &app_config.ui_public_url,
+        &app_config.api_public_url,
+        database.clone(),
+        role_repo,
         oauth2_service,
     );
-    let lidp_router =
-        lidp_http_server::openapi_router(lidp_router_state, &app_config.lidp_prefix());
+    let management_router =
+        lidp_management_server::openapi_router(management_router_state, "/lidp-management");
 
-    let router = openapi_router(lidp_router)
+    let router = openapi_router(lidp_router, management_router)
         .layer(CorsLayer::very_permissive().allow_private_network(true))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new().gzip(app_config.server.gzip))

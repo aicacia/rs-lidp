@@ -12,7 +12,7 @@ use model::contract::{
 };
 use serde::Deserialize;
 
-pub const DEFAULT_ISSUER: &str = "https://lidp-api.localhost:1337";
+pub const DEFAULT_ISSUER: &str = "https://unified-api.localhost:1337/lidp";
 pub const DEFAULT_REQUIRE_PKCE: bool = true;
 pub const DEFAULT_TOKEN_TTL_SECS: u64 = 3600;
 pub const DEFAULT_REFRESH_TOKEN_TTL_SECS: u64 = 2_592_000;

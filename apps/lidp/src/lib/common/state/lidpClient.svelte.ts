@@ -7,8 +7,9 @@ import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
+import { env } from "$env/dynamic/public";
 
-let idpApiUrl = $state<string>("https://lidp-api.localhost:1337");
+let idpApiUrl = $state<string>(env.PUBLIC_LIDP_BASE_URL ?? "https://lidp-api.localhost:1337");
 let authToken = $state<string | undefined>();
 
 export const defaultConfigurationParameters: ConfigurationParameters = {

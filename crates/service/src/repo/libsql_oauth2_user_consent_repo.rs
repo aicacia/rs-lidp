@@ -104,4 +104,82 @@ impl OAuth2UserConsentRepo for LibSqlOAuth2UserConsentRepo {
 
         Ok(Some(from_row::<OAuth2UserConsent>(&row)?))
     }
+
+    async fn list_user_consents(
+        &self,
+        user_id: i64,
+        offset: u32,
+        limit: u32,
+    ) -> RepoResult<Vec<OAuth2UserConsent>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                user_id,
+                client_id,
+                redirect_uri,
+                scope,
+                created_at,
+                updated_at
+            FROM oauth2_user_consents
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        "#;
+
+        let mut rows = connection
+            .query(
+                query,
+                libsql::params![user_id, i64::from(limit), i64::from(offset)],
+            )
+            .await?;
+
+        let mut consents = Vec::new();
+        while let Some(row) = rows.next().await? {
+            consents.push(from_row::<OAuth2UserConsent>(&row)?);
+        }
+
+        Ok(consents)
+    }
+
+    async fn find_user_consent_by_id(
+        &self,
+        consent_id: i64,
+    ) -> RepoResult<Option<OAuth2UserConsent>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                user_id,
+                client_id,
+                redirect_uri,
+                scope,
+                created_at,
+                updated_at
+            FROM oauth2_user_consents
+            WHERE id = ?
+        "#;
+
+        let row = {
+            let mut rows = connection.query(query, libsql::params![consent_id]).await?;
+            if let Some(row) = rows.next().await? {
+                row
+            } else {
+                return Ok(None);
+            }
+        };
+
+        Ok(Some(from_row::<OAuth2UserConsent>(&row)?))
+    }
+
+    async fn delete_user_consent_by_id(&self, consent_id: i64) -> RepoResult<()> {
+        let connection = self.database.connect()?;
+        connection
+            .execute(
+                "DELETE FROM oauth2_user_consents WHERE id = ?",
+                libsql::params![consent_id],
+            )
+            .await?;
+        Ok(())
+    }
 }

@@ -13,17 +13,17 @@
 
 <script lang="ts">
     import { createForm } from "@aicacia/svelte-forms";
-    import Issues from "$lib/common/components/Issues.svelte";
-    import {
-        getLIdpApiUrl,
-        setLIdpApiUrl,
-        validateLIdpApiUrl,
-    } from "$lib/common/state/lidpClient.svelte";
     import { goto } from "$app/navigation";
     import { resolve } from "$app/paths";
+    import Issues from "$lib/common/components/Issues.svelte";
+    import {
+        getManagementApiUrl,
+        setManagementApiUrl,
+        validateManagementApiUrl,
+    } from "$lib/common/state/managementClient.svelte";
 
     const form = createForm(lIdpConfigSchema, {
-        url: getLIdpApiUrl()?.toString() ?? "",
+        url: getManagementApiUrl()?.toString() ?? "",
     });
 
     async function onSubmit(e: SubmitEvent) {
@@ -35,13 +35,13 @@
             return;
         }
         const lIdpApiUrl = new URL(output.url);
-        if (!(await validateLIdpApiUrl(lIdpApiUrl))) {
+        if (!(await validateManagementApiUrl(lIdpApiUrl))) {
             form.fields.url.issues.push(m.errors_message_invalid_url());
             return;
         }
-        setLIdpApiUrl(lIdpApiUrl);
+        setManagementApiUrl(lIdpApiUrl);
 
-        await goto(resolve('/signin'));
+        await goto(resolve("/signin"));
     }
 </script>
 

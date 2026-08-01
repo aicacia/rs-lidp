@@ -67,6 +67,49 @@ impl ClientRepo for LibSqlClientRepo {
         Ok(Some(client))
     }
 
+    async fn list_clients(&self, offset: u32, limit: u32) -> RepoResult<Vec<Client>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                client_id,
+                client_secret,
+                client_id_issued_at,
+                client_secret_expires_at,
+                client_name,
+                client_uri,
+                redirect_uris,
+                client_type,
+                profile,
+                token_endpoint_auth_method,
+                allowed_grant_types,
+                response_types,
+                allowed_scopes,
+                logo_uri,
+                contacts,
+                terms_of_service_uri,
+                policy_uri,
+                software_statement,
+                software_id,
+                software_version,
+                created_at,
+                updated_at
+            FROM clients
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        "#;
+        let mut rows = connection
+            .query(query, libsql::params![i64::from(limit), i64::from(offset)])
+            .await?;
+        let mut clients = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            clients.push(from_row::<Client>(&row)?);
+        }
+
+        Ok(clients)
+    }
+
     async fn create_client(&self, client: ClientRegistration) -> RepoResult<Client> {
         let connection = self.database.connect()?;
         let redirect_uris = serde_json::to_string(&client.redirect_uris)

@@ -49,6 +49,26 @@ pub struct OAuth2Service<C, K, A, U, G> {
     pub key_namespace: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct UpdateUserInfoRequest {
+    pub name: Option<String>,
+    pub given_name: Option<String>,
+    pub family_name: Option<String>,
+    pub middle_name: Option<String>,
+    pub nickname: Option<String>,
+    pub profile: Option<String>,
+    pub picture: Option<String>,
+    pub website: Option<String>,
+    pub sex: Option<String>,
+    pub birthdate: Option<String>,
+    pub zoneinfo: Option<String>,
+    pub locale: Option<String>,
+    pub email: Option<String>,
+    pub email_verified: Option<bool>,
+    pub phone_number: Option<String>,
+    pub phone_number_verified: Option<bool>,
+}
+
 impl<C, K, A, U, G> OAuth2Service<C, K, A, U, G>
 where
     C: ClientRepo,
@@ -114,6 +134,20 @@ where
                 ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
             })?;
         Ok(client.into())
+    }
+
+    pub async fn list_clients(
+        &self,
+        offset: u32,
+        limit: u32,
+    ) -> ErrorResponseResult<Vec<ClientRegistration>> {
+        let clients = self
+            .client_repo
+            .list_clients(offset, limit)
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        Ok(clients.into_iter().map(Into::into).collect())
     }
 
     pub async fn update_client(
@@ -753,6 +787,46 @@ where
         Ok(Jwks { keys: jwks })
     }
 
+    pub async fn list_client_keys(&self, client_id: &str) -> ErrorResponseResult<Vec<Key>> {
+        let client = self
+            .client_repo
+            .find_client_by_client_id(client_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
+            })?;
+
+        self.key_service
+            .key_repo()
+            .list_by_entity_type_and_id(EntityType::Client, client.id)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn find_public_jwk(&self, key_id: u32) -> ErrorResponseResult<JwkPublic> {
+        let key = self
+            .key_service
+            .key_repo()
+            .find_by_id(key_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::NotFound).with_description("key not found")
+            })?;
+
+        let private_key = self
+            .key_service
+            .private_key_repo()
+            .load(&self.key_namespace, &key.derivation_path()?)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::ServerError)
+                    .with_description("signing key not found in private key repository")
+            })?;
+
+        key.to_jwk_public(&private_key).map_err(ErrorResponse::from)
+    }
+
     pub fn metadata(&self) -> AuthorizationServerMetadata {
         self.oauth_config.to_metadata()
     }
@@ -872,6 +946,214 @@ where
                 ErrorResponse::new(ErrorCode::NotFound)
                     .with_description("User not found".to_string())
             })?;
+
+        self.hydrate_user_info(user).await
+    }
+
+    pub async fn list_user_info(
+        &self,
+        offset: u32,
+        limit: u32,
+    ) -> ErrorResponseResult<Vec<UserInfo>> {
+        let users = self
+            .user_repo
+            .list_users(offset, limit)
+            .await
+            .map_err(ErrorResponse::from)?;
+        let mut user_info_list = Vec::with_capacity(users.len());
+
+        for user in users {
+            user_info_list.push(self.hydrate_user_info(user).await?);
+        }
+
+        Ok(user_info_list)
+    }
+
+    pub async fn update_user_info(
+        &self,
+        user_id: i64,
+        request: UpdateUserInfoRequest,
+    ) -> ErrorResponseResult<UserInfo> {
+        let existing = self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::NotFound)
+                    .with_description("User not found".to_string())
+            })?;
+
+        let sex = match request.sex.as_deref() {
+            Some("male") => Some(model::contract::Sex::Male),
+            Some("female") => Some(model::contract::Sex::Female),
+            Some(value) => {
+                return Err(ErrorResponse::new(ErrorCode::InvalidRequest)
+                    .with_description(format!("unsupported sex value: {value}")));
+            }
+            None => existing.sex,
+        };
+
+        let birthdate = match request.birthdate.as_deref() {
+            Some(value) => Some(
+                chrono::DateTime::parse_from_rfc3339(value)
+                    .map_err(|_| {
+                        ErrorResponse::new(ErrorCode::InvalidRequest)
+                            .with_description("birthdate must be RFC3339".to_string())
+                    })?
+                    .with_timezone(&Utc),
+            ),
+            None => existing.birthdate,
+        };
+
+        let user = User {
+            id: existing.id,
+            name: request.name.unwrap_or(existing.name),
+            given_name: request.given_name.or(existing.given_name),
+            family_name: request.family_name.or(existing.family_name),
+            middle_name: request.middle_name.or(existing.middle_name),
+            nickname: request.nickname.or(existing.nickname),
+            profile: request.profile.or(existing.profile),
+            picture: request.picture.or(existing.picture),
+            website: request.website.or(existing.website),
+            sex,
+            birthdate,
+            zoneinfo: request.zoneinfo.or(existing.zoneinfo),
+            locale: request.locale.or(existing.locale),
+            created_at: existing.created_at,
+            updated_at: Utc::now(),
+        };
+
+        let user = self
+            .user_repo
+            .update_user(user)
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        if let Some(email) = request.email {
+            self.user_repo
+                .upsert_primary_user_email(user.id, &email, request.email_verified.unwrap_or(false))
+                .await
+                .map_err(ErrorResponse::from)?;
+        }
+
+        if let Some(phone_number) = request.phone_number {
+            self.user_repo
+                .upsert_primary_user_phone_number(
+                    user.id,
+                    &phone_number,
+                    request.phone_number_verified.unwrap_or(false),
+                )
+                .await
+                .map_err(ErrorResponse::from)?;
+        }
+
+        self.hydrate_user_info(user).await
+    }
+
+    pub async fn reset_user_password(
+        &self,
+        user_id: i64,
+        password: &str,
+    ) -> ErrorResponseResult<()> {
+        if self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .is_none()
+        {
+            return Err(
+                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
+            );
+        }
+
+        self.user_repo
+            .replace_user_password(user_id, password)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn delete_user(&self, user_id: i64) -> ErrorResponseResult<()> {
+        if self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .is_none()
+        {
+            return Err(
+                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
+            );
+        }
+
+        self.user_repo
+            .delete_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn list_user_consents(
+        &self,
+        user_id: i64,
+        offset: u32,
+        limit: u32,
+    ) -> ErrorResponseResult<Vec<model::model::OAuth2UserConsent>> {
+        if self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .is_none()
+        {
+            return Err(
+                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
+            );
+        }
+
+        self.oauth2_user_consent_repo
+            .list_user_consents(user_id, offset, limit)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    pub async fn revoke_user_consent(&self, user_id: i64, consent_id: i64) -> ErrorResponseResult<()> {
+        if self
+            .user_repo
+            .find_user_by_id(user_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .is_none()
+        {
+            return Err(
+                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
+            );
+        }
+
+        let consent = self
+            .oauth2_user_consent_repo
+            .find_user_consent_by_id(consent_id)
+            .await
+            .map_err(ErrorResponse::from)?
+            .ok_or_else(|| {
+                ErrorResponse::new(ErrorCode::NotFound)
+                    .with_description("User consent not found".to_string())
+            })?;
+
+        if consent.user_id != user_id {
+            return Err(
+                ErrorResponse::new(ErrorCode::NotFound).with_description("User consent not found".to_string())
+            );
+        }
+
+        self.oauth2_user_consent_repo
+            .delete_user_consent_by_id(consent_id)
+            .await
+            .map_err(ErrorResponse::from)
+    }
+
+    async fn hydrate_user_info(&self, user: User) -> ErrorResponseResult<UserInfo> {
+        let user_id = user.id;
         let mut user_info: UserInfo = From::from(user);
 
         let emails = self

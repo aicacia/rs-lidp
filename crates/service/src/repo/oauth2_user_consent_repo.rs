@@ -18,4 +18,18 @@ pub trait OAuth2UserConsentRepo {
         redirect_uri: &str,
         scope: &str,
     ) -> impl Future<Output = RepoResult<Option<OAuth2UserConsent>>>;
+
+    fn list_user_consents(
+        &self,
+        user_id: i64,
+        offset: u32,
+        limit: u32,
+    ) -> impl Future<Output = RepoResult<Vec<OAuth2UserConsent>>>;
+
+    fn find_user_consent_by_id(
+        &self,
+        consent_id: i64,
+    ) -> impl Future<Output = RepoResult<Option<OAuth2UserConsent>>>;
+
+    fn delete_user_consent_by_id(&self, consent_id: i64) -> impl Future<Output = RepoResult<()>>;
 }

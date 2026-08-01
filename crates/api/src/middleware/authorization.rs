@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use axum::extract::{FromRef, FromRequestParts};
+use axum::{
+    extract::{FromRef, FromRequestParts},
+    http::header::AUTHORIZATION,
+};
 use http::{HeaderValue, request::Parts};
 use model::contract::{ErrorCode, ErrorResponse, StandardClaims};
 use serde::de::DeserializeOwned;
@@ -8,7 +11,6 @@ use service::oauth2::{Principal, decode_jwt};
 
 use crate::RouterState;
 
-pub const AUTHORIZATION_HEADER: &str = "Authorization";
 pub const AUTHORIZATION_BEARER_PREFIX: &str = "Bearer ";
 
 pub type StandardAuthorization = Authorization<StandardClaims>;
@@ -30,7 +32,7 @@ where
     type Rejection = ErrorResponse;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        if let Some(authorization_header_value) = parts.headers.get(AUTHORIZATION_HEADER) {
+        if let Some(authorization_header_value) = parts.headers.get(AUTHORIZATION) {
             let authorization_string = authorization_from_header(authorization_header_value)?;
             let (jwt_header, _claims) = decode_jwt::<T>(authorization_string)?;
 

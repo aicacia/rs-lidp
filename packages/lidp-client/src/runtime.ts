@@ -13,7 +13,7 @@
  */
 
 
-export const BASE_PATH = "http://localhost".replace(/\/+$/, "");
+export const BASE_PATH = "https://unified-api.localhost:1337/lidp".replace(/\/+$/, "");
 
 export interface ConfigurationParameters {
     basePath?: string; // override base path

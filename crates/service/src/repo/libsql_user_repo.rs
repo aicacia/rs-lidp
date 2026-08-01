@@ -68,6 +68,41 @@ impl UserRepo for LibSqlUserRepo {
         Ok(Some(user))
     }
 
+    async fn list_users(&self, offset: u32, limit: u32) -> RepoResult<Vec<User>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                name,
+                given_name,
+                family_name,
+                middle_name,
+                nickname,
+                profile,
+                picture,
+                website,
+                sex,
+                birthdate,
+                zoneinfo,
+                locale,
+                created_at,
+                updated_at
+            FROM users
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        "#;
+        let mut rows = connection
+            .query(query, libsql::params![i64::from(limit), i64::from(offset)])
+            .await?;
+        let mut users = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            users.push(from_row::<User>(&row)?);
+        }
+
+        Ok(users)
+    }
+
     async fn find_user_by_username_or_email(&self, identifier: &str) -> RepoResult<Option<User>> {
         let connection = self.database.connect()?;
         let query = r#"
@@ -253,5 +288,178 @@ impl UserRepo for LibSqlUserRepo {
         .await?;
 
         Ok(user)
+    }
+
+    async fn update_user(&self, user: User) -> RepoResult<User> {
+        let connection = self.database.connect()?;
+        let sex = user.sex.map(|value| value as i64);
+        let birthdate = user.birthdate.map(|value| value.to_rfc3339());
+
+        let query = r#"
+            UPDATE users
+            SET
+                name = ?,
+                given_name = ?,
+                family_name = ?,
+                middle_name = ?,
+                nickname = ?,
+                profile = ?,
+                picture = ?,
+                website = ?,
+                sex = ?,
+                birthdate = ?,
+                zoneinfo = ?,
+                locale = ?,
+                updated_at = unixepoch()
+            WHERE id = ?
+            RETURNING *
+        "#;
+
+        let mut rows = connection
+            .query(
+                query,
+                libsql::params![
+                    user.name,
+                    user.given_name,
+                    user.family_name,
+                    user.middle_name,
+                    user.nickname,
+                    user.profile,
+                    user.picture,
+                    user.website,
+                    sex,
+                    birthdate,
+                    user.zoneinfo,
+                    user.locale,
+                    user.id,
+                ],
+            )
+            .await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(from_row::<User>(&row)?)
+        } else {
+            Err(RepoError::Other("user not found during update".into()))
+        }
+    }
+
+    async fn upsert_primary_user_email(
+        &self,
+        user_id: i64,
+        email: &str,
+        verified: bool,
+    ) -> RepoResult<()> {
+        let connection = self.database.connect()?;
+        let email = email.to_string();
+
+        run_transaction(&connection, move |transaction| {
+            Box::pin(async move {
+                transaction
+                    .execute(
+                        "UPDATE user_emails SET `primary` = 0, updated_at = unixepoch() WHERE user_id = ?",
+                        libsql::params![user_id],
+                    )
+                    .await?;
+
+                transaction
+                    .execute(
+                        r#"
+                            INSERT INTO user_emails (user_id, email, verified, `primary`)
+                            VALUES (?, ?, ?, 1)
+                            ON CONFLICT(user_id, email)
+                            DO UPDATE SET
+                                verified = excluded.verified,
+                                `primary` = 1,
+                                updated_at = unixepoch()
+                        "#,
+                        libsql::params![user_id, email, verified],
+                    )
+                    .await?;
+
+                Ok(())
+            })
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn upsert_primary_user_phone_number(
+        &self,
+        user_id: i64,
+        phone_number: &str,
+        verified: bool,
+    ) -> RepoResult<()> {
+        let connection = self.database.connect()?;
+        let phone_number = phone_number.to_string();
+
+        run_transaction(&connection, move |transaction| {
+            Box::pin(async move {
+                transaction
+                    .execute(
+                        "UPDATE user_phone_numbers SET `primary` = 0, updated_at = unixepoch() WHERE user_id = ?",
+                        libsql::params![user_id],
+                    )
+                    .await?;
+
+                transaction
+                    .execute(
+                        r#"
+                            INSERT INTO user_phone_numbers (user_id, phone_number, verified, `primary`)
+                            VALUES (?, ?, ?, 1)
+                            ON CONFLICT(user_id, phone_number)
+                            DO UPDATE SET
+                                verified = excluded.verified,
+                                `primary` = 1,
+                                updated_at = unixepoch()
+                        "#,
+                        libsql::params![user_id, phone_number, verified],
+                    )
+                    .await?;
+
+                Ok(())
+            })
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn replace_user_password(&self, user_id: i64, password: &str) -> RepoResult<()> {
+        let connection = self.database.connect()?;
+
+        let password_hash = encrypt_password(&self.password_config, password)
+            .map_err(|e| RepoError::Other(e.into()))?;
+
+        run_transaction(&connection, move |transaction| {
+            Box::pin(async move {
+                transaction
+                    .execute(
+                        "UPDATE user_passwords SET active = 0, updated_at = unixepoch() WHERE user_id = ? AND active = 1",
+                        libsql::params![user_id],
+                    )
+                    .await?;
+
+                transaction
+                    .execute(
+                        "INSERT INTO user_passwords (user_id, active, password_hash) VALUES (?, 1, ?)",
+                        libsql::params![user_id, password_hash],
+                    )
+                    .await?;
+
+                Ok(())
+            })
+        })
+        .await?;
+
+        Ok(())
+    }
+
+    async fn delete_user_by_id(&self, user_id: i64) -> RepoResult<()> {
+        let connection = self.database.connect()?;
+        connection
+            .execute("DELETE FROM users WHERE id = ?", libsql::params![user_id])
+            .await?;
+        Ok(())
     }
 }

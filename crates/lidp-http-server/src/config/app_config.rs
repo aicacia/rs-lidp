@@ -15,7 +15,8 @@ pub struct AppConfig {
     pub password: PasswordConfig,
     pub key_namespace: String,
     pub log_level: String,
-    pub ui_base_url: String,
+    pub ui_public_url: String,
+    pub api_public_url: String,
     pub env: Environment,
 }
 
@@ -28,7 +29,8 @@ impl Default for AppConfig {
             bootstrap: BootstrapConfig::default(),
             password: PasswordConfig::default(),
             key_namespace: "lidp".to_string(),
-            ui_base_url: "https://lidp.localhost:1337".to_string(),
+            ui_public_url: "https://lidp.localhost:1337".to_string(),
+            api_public_url: "https://lidp-api.localhost:1337".to_string(),
             log_level: "DEBUG".to_string(),
             env: Environment::default(),
         }

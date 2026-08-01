@@ -11,7 +11,9 @@
     "apps:dev": "pnpm --filter \"./apps/*\" run dev",
     "apps:build": "pnpm --filter \"./apps/*\" run build",
     "packages:build": "pnpm --filter \"./packages/*\" run build",
-    "openapi": "pnpm --filter \"./packages/lidp-client\" run openapi"
+    "openapi:lidp": "pnpm --filter \"./packages/lidp-client\" run openapi",
+    "openapi:management": "pnpm --filter \"./packages/lidp-management-client\" run openapi",
+    "openapi": "pnpm run openapi:lidp && pnpm run openapi:management"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.3",

@@ -1,6 +1,8 @@
 mod client;
 pub mod json_vec;
 mod key;
+mod management_role;
+mod management_user_role;
 mod none_to_default;
 mod oauth2_authorization_code;
 mod oauth2_user_consent;
@@ -12,6 +14,8 @@ mod user_phone_number;
 
 pub use client::Client;
 pub use key::Key;
+pub use management_role::ManagementRole;
+pub use management_user_role::ManagementUserRole;
 pub use none_to_default::none_to_default;
 pub use oauth2_authorization_code::OAuth2AuthorizationCode;
 pub use oauth2_user_consent::OAuth2UserConsent;
