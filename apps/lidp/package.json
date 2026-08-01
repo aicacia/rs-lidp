@@ -17,7 +17,8 @@
 		"postinstall": "svelte-kit sync"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.3",
+    "@standard-schema/spec": "^1.1.0",
+		"@biomejs/biome": "^2.5.3",
 		"@inlang/paraglide-js": "^2.21.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.69.2",
@@ -37,7 +38,7 @@
 	},
 	"dependencies": {
 		"@lucide/svelte": "^1.24.0",
-		"@aicacia/svelte-forms": "^0.1.0",
+		"@aicacia/svelte-forms": "^0.1.1",
 		"@aicacia/svelte-headless": "workspace:*",
 		"@aicacia/oidc-client": "workspace:*",
 		"@aicacia/lidp-client": "workspace:*",

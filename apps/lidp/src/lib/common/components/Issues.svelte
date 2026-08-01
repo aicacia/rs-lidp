@@ -1,8 +1,8 @@
 <script lang="ts" module>
-	import type * as v from 'valibot';
+	import type { StandardSchemaV1 } from '@standard-schema/spec';
 
-	export interface IssuesProps<V extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>> {
-		issues: v.InferIssue<V>[];
+	export interface IssuesProps<V extends StandardSchemaV1.BaseSchema<unknown, unknown, StandardSchemaV1.BaseIssue<unknown>>> {
+		issues: StandardSchemaV1.Issue<V>[];
 	}
 </script>
 

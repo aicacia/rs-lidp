@@ -8,18 +8,10 @@ import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
 import { createStorage } from "@aicacia/svelte-headless";
+import { env } from "$env/dynamic/public";
 
-let lIdpApiUrl = createStorage<URL | null>("lidp-api-url", null, {
-  serializer: {
-    parse(text: string): URL | null {
-      return new URL(text);
-    },
-    stringify(object: URL | null): string {
-      return urlToString(object);
-    },
-  },
-});
-let isLIdpApiIsNative = $derived.by(() => lIdpApiUrl.item?.protocol === "lidp:")
+const lidpApiUrl = createStorage<string | null>("lidp-api-url", env.PUBLIC_LIDP_BASE_URL ?? null);
+let isLidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"))
 let authToken = $state<string | undefined>();
 
 export const defaultConfigurationParameters: ConfigurationParameters = {
@@ -46,13 +38,13 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
   ],
   get fetchApi() {
     // TODO: create a IPC fetch API for tauri
-    return isLIdpApiIsNative ? fetch : fetch
+    return isLidpApiIsNative ? fetch : fetch
   },
   accessToken() {
     return authToken as string;
   },
   get basePath() {
-    return urlToString(lIdpApiUrl.item);
+    return lidpApiUrl.item;
   },
   credentials: "same-origin",
 };
@@ -70,20 +62,20 @@ export function getAuthToken() {
   return authToken;
 }
 
-export function setLIdpApiUrl(newLIdpApiUrl: URL) {
-  lIdpApiUrl.item = newLIdpApiUrl;
+export function setLidpApiUrl(newLidpApiUrl: string) {
+  lidpApiUrl.item = newLidpApiUrl;
 }
-export function getLIdpApiUrl(): URL | null {
-  return lIdpApiUrl.item;
+export function getLidpApiUrl(): string | null {
+  return lidpApiUrl.item;
 }
 
-export async function validateLIdpApiUrl(url: URL | null): Promise<boolean> {
-  if (!url) {
+export async function validateLidpApiUrl(basePath: string): Promise<boolean> {
+  if (!basePath) {
     return false;
   }
   const configuration = new Configuration({
     ...defaultConfigurationParameters,
-    basePath: urlToString(url),
+    basePath,
 });
   const api = new DefaultApi(configuration);
 
@@ -92,8 +84,4 @@ export async function validateLIdpApiUrl(url: URL | null): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function urlToString(url: URL | null): string {
-  return url?.toString().replace(/\/$/, "") ?? "";
 }

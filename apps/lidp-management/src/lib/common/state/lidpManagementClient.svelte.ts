@@ -10,26 +10,9 @@ import { page } from "$app/state";
 import { env } from "$env/dynamic/public";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
 
-const managementApiUrl = createStorage<URL | null>("management-api-url", null, {
-    serializer: {
-        parse(text: string): URL | null {
-            return new URL(text);
-        },
-        stringify(object: URL | null): string {
-            return urlToString(object);
-        },
-    },
-});
+const lidpManagementApiUrl = createStorage<string | null>("lidp-management-api-url", env.PUBLIC_LIDP_MANAGEMENT_BASE_URL);
 
 let authToken = $state<string | undefined>();
-
-const defaultManagementApiUrl = env.PUBLIC_LIDP_MANAGEMENT_BASE_URL
-    ? new URL(env.PUBLIC_LIDP_MANAGEMENT_BASE_URL)
-    : null;
-
-if (managementApiUrl.item == null && defaultManagementApiUrl != null) {
-    managementApiUrl.item = defaultManagementApiUrl;
-}
 
 const defaultConfigurationParameters: ConfigurationParameters = {
     middleware: [
@@ -57,7 +40,7 @@ const defaultConfigurationParameters: ConfigurationParameters = {
         return authToken as string;
     },
     get basePath() {
-        return urlToBasePathString(managementApiUrl.item);
+        return lidpManagementApiUrl.item;
     },
     get fetchApi() {
         return fetch;
@@ -65,33 +48,29 @@ const defaultConfigurationParameters: ConfigurationParameters = {
     credentials: "same-origin",
 };
 
-export const managementConfiguration = new Configuration(
+export const lidpManagementConfiguration = new Configuration(
     defaultConfigurationParameters,
 );
 
-export const managementApi = new DefaultApi(managementConfiguration);
+export const lidpManagementApi = new DefaultApi(lidpManagementConfiguration);
 
-export function setManagementApiUrl(newManagementApiUrl: URL) {
-    managementApiUrl.item = newManagementApiUrl;
+export function setLidpManagementApiUrl(newLidpManagementApiUrl: string) {
+    lidpManagementApiUrl.item = newLidpManagementApiUrl;
 }
 
-export function getManagementApiUrl(): URL | null {
-    return managementApiUrl.item;
+export function getLidpManagementApiUrl(): string | null {
+    return lidpManagementApiUrl.item;
 }
 
-export function getManagementApiBaseUrl(): string {
-    return urlToBasePathString(managementApiUrl.item);
-}
-
-export async function validateManagementApiUrl(
-    url: URL | null,
+export async function validateLidpManagementApiUrl(
+    basePath: string,
 ): Promise<boolean> {
-    if (!url) {
-        return false;
-    }
+  if (!basePath) {
+    return false;
+  }
     const configuration = new Configuration({
         ...defaultConfigurationParameters,
-        basePath: urlToBasePathString(url),
+        basePath,
     });
     const api = new DefaultApi(configuration);
 
@@ -108,17 +87,4 @@ export function setAuthToken(newAuthToken?: string | null) {
 
 export function getAuthToken() {
     return authToken;
-}
-
-function urlToBasePathString(url: URL | null): string {
-    return (
-        url
-            ?.toString()
-            .replace(/\/openapi\.json\/?$/, "")
-            .replace(/\/$/, "") ?? ""
-    );
-}
-
-function urlToString(url: URL | null): string {
-    return url?.toString().replace(/\/$/, "") ?? "";
 }

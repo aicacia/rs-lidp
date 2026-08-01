@@ -38,7 +38,7 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
         return authToken as string;
     },
     get basePath() {
-        return new URL(idpApiUrl).origin;
+        return idpApiUrl;
     },
     credentials: "same-origin",
 };
