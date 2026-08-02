@@ -18,7 +18,10 @@ fn derive_child_number_matches_path_derivation() -> KeyResult<()> {
 fn derive_nested_path_matches_stepwise_derivation() -> KeyResult<()> {
     let master = MasterKey::from_entropy(TEST_ENTROPY)?;
 
-    let child = master.derive("m/0")?.derive("1")?.derive("2")?;
+    let child = master
+        .derive("m/0")?
+        .derive("m/0/1")?
+        .derive("m/0/1/2")?;
 
     let direct = master.derive("m/0/1/2")?;
 

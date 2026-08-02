@@ -150,8 +150,9 @@ CREATE TABLE `keys` (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
-CREATE INDEX `idx_keys_entity_type_entity_id` ON `keys`(`entity_type`, `entity_id`);
 CREATE INDEX `idx_keys_parent_id` ON `keys`(`parent_id`);
+CREATE UNIQUE INDEX `idx_keys_entity_type_entity_id`
+    ON `keys`(`entity_type`, `entity_id`);
 
 CREATE TABLE `oauth2_authorization_codes` (
     `id` INTEGER PRIMARY KEY,

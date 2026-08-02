@@ -12,12 +12,20 @@ pub trait PrivateKeyRepo {
     fn delete(&self, namespace: &str, derivation_path: &DerivationPath) -> RepoResult<()>;
 
     fn ensure_master_key(&self, namespace: &str) -> RepoResult<DerivedKey> {
+        self.ensure_master_key_with_passphrase(namespace, "")
+    }
+
+    fn ensure_master_key_with_passphrase(
+        &self,
+        namespace: &str,
+        passphrase: &str,
+    ) -> RepoResult<DerivedKey> {
         let derivation_path = DerivationPath::default();
         match self.load(namespace, &derivation_path)? {
             Some(derived_key) => Ok(derived_key),
             None => {
                 let entropy = MasterKey::entropy()?;
-                let master_key = MasterKey::from_entropy(entropy)?;
+                let master_key = MasterKey::from_entropy_with_passphrase(entropy, passphrase)?;
                 let derived_key = master_key.into();
                 self.store(namespace, &derived_key)?;
                 Ok(derived_key)

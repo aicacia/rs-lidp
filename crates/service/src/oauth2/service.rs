@@ -46,7 +46,6 @@ pub struct OAuth2Service<C, K, A, U, G> {
     pub oauth2_user_consent_repo: G,
     pub key_service: Arc<KeyService<K>>,
     pub oauth_config: OAuth2Config,
-    pub key_namespace: String,
 }
 
 #[derive(Clone, Debug)]
@@ -84,7 +83,7 @@ where
         oauth2_user_consent_repo: G,
         key_service: Arc<KeyService<K>>,
         oauth_config: OAuth2Config,
-        key_namespace: String,
+        _key_namespace: String,
     ) -> Self {
         Self {
             client_repo,
@@ -93,7 +92,6 @@ where
             oauth2_user_consent_repo,
             key_service,
             oauth_config,
-            key_namespace,
         }
     }
 
@@ -797,11 +795,18 @@ where
                 ErrorResponse::new(ErrorCode::InvalidClient).with_description("client not found")
             })?;
 
-        self.key_service
+        let key = self
+            .key_service
             .key_repo()
-            .list_by_entity_type_and_id(EntityType::Client, client.id)
+            .find_active_entity_root_key(EntityType::Client, client.id)
             .await
-            .map_err(ErrorResponse::from)
+            .map_err(ErrorResponse::from)?;
+
+        if let Some(key) = key {
+            Ok(vec![key])
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     pub async fn find_public_jwk(&self, key_id: u32) -> ErrorResponseResult<JwkPublic> {
@@ -815,10 +820,17 @@ where
                 ErrorResponse::new(ErrorCode::NotFound).with_description("key not found")
             })?;
 
+        self.ensure_key_is_active_entity_root(&key).await?;
+
         let private_key = self
             .key_service
             .private_key_repo()
-            .load(&self.key_namespace, &key.derivation_path()?)?
+            .load(
+                &self
+                    .key_service
+                    .scoped_namespace(key.entity_type, key.entity_id),
+                &key.derivation_path()?,
+            )?
             .ok_or_else(|| {
                 ErrorResponse::new(ErrorCode::ServerError)
                     .with_description("signing key not found in private key repository")
@@ -832,11 +844,12 @@ where
     }
 
     async fn load_signing_jwk(&self, key: &Key) -> ErrorResponseResult<JwkPrivate> {
-        if let Some(private_key) = self
-            .key_service
-            .private_key_repo()
-            .load(&self.key_namespace, &key.derivation_path()?)?
-        {
+        if let Some(private_key) = self.key_service.private_key_repo().load(
+            &self
+                .key_service
+                .scoped_namespace(key.entity_type, key.entity_id),
+            &key.derivation_path()?,
+        )? {
             return Ok(key.to_jwk_private(&private_key)?);
         }
         return Err(ErrorResponse::new(ErrorCode::ServerError)
@@ -1189,6 +1202,10 @@ where
             return Ok(None);
         };
 
+        if self.ensure_key_is_active_entity_root(&key).await.is_err() {
+            return Ok(None);
+        }
+
         let principal =
             match key.entity_type {
                 EntityType::User => {
@@ -1209,5 +1226,26 @@ where
             };
 
         Ok(Some(principal))
+    }
+
+    async fn ensure_key_is_active_entity_root(&self, key: &Key) -> ErrorResponseResult<()> {
+        let active_root = self
+            .key_service
+            .key_repo()
+            .find_active_entity_root_key(key.entity_type, key.entity_id)
+            .await
+            .map_err(ErrorResponse::from)?;
+
+        let active_root = active_root.ok_or_else(|| {
+            ErrorResponse::new(ErrorCode::InvalidGrant)
+                .with_description("active entity root key not found")
+        })?;
+
+        if active_root.id != key.id {
+            return Err(ErrorResponse::new(ErrorCode::InvalidGrant)
+                .with_description("key is not the active entity root"));
+        }
+
+        Ok(())
     }
 }

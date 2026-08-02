@@ -206,13 +206,20 @@ impl UserRepo for LibSqlUserRepo {
         email: &str,
         password: &str,
     ) -> RepoResult<User> {
+        if password.trim().is_empty() {
+            return Err(RepoError::InvalidInput(
+                "password is required for user key material".to_string(),
+            ));
+        }
+
         let connection = self.database.connect()?;
 
         let key_service = self.key_service.clone();
 
         let username = username.to_string();
         let email = email.to_string();
-        let password_hash = encrypt_password(&self.password_config, password)
+        let password = password.to_string();
+        let password_hash = encrypt_password(&self.password_config, password.as_str())
             .map_err(|e| RepoError::Other(e.into()))?;
 
         let (user, _email, _password) = run_transaction(&connection, move |transaction| {
@@ -232,6 +239,10 @@ impl UserRepo for LibSqlUserRepo {
                 let user: User = from_row(&row).map_err(|e| {
                     libsql::Error::Misuse(format!("invalid rows returned for user: {}", e))
                 })?;
+
+                key_service
+                    .ensure_entity_master_key(EntityType::User, user.id, password.as_str())
+                    .map_err(RepoError::into_libsql)?;
 
                 let email_query = r#"
                 INSERT INTO `user_emails` (

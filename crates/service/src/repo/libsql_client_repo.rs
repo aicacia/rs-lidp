@@ -3,7 +3,7 @@ use std::sync::Arc;
 use db::run_transaction;
 use libsql::{Database, de::from_row};
 use model::{
-    contract::{ClientRegistration, EntityType},
+    contract::{ClientRegistration, ClientType, EntityType},
     model::Client,
 };
 
@@ -127,6 +127,10 @@ impl ClientRepo for LibSqlClientRepo {
 
         let (_id, client_id) = run_transaction(&connection, move |transaction| {
             Box::pin(async move {
+                let client_type = client.client_type;
+                let client_secret = client.client_secret.clone();
+                let client_name = client.client_name.clone();
+
                 let client_query = r#"
                 INSERT INTO clients (
                     client_id,
@@ -157,12 +161,12 @@ impl ClientRepo for LibSqlClientRepo {
                         client_query,
                         libsql::params![
                             client.client_id,
-                            client.client_secret,
+                            client_secret.clone(),
                             client.client_secret_expires_at,
-                            client.client_name.clone(),
+                            client_name.clone(),
                             client.client_uri,
                             redirect_uris,
-                            client.client_type as i64,
+                            client_type as i64,
                             client.profile as i64,
                             client.token_endpoint_auth_method as i64,
                             allowed_grant_types,
@@ -182,6 +186,33 @@ impl ClientRepo for LibSqlClientRepo {
                 let id: i64 = row.get(0)?;
                 let client_id: String = row.get(1)?;
 
+                let passphrase = match client_type {
+                    ClientType::Confidential => {
+                        let client_secret = client_secret.clone().ok_or_else(|| {
+                            RepoError::InvalidInput(
+                                "client_secret is required for confidential client key material"
+                                    .to_string(),
+                            )
+                            .into_libsql()
+                        })?;
+
+                        if client_secret.trim().is_empty() {
+                            return Err(RepoError::InvalidInput(
+                                "client_secret is required for confidential client key material"
+                                    .to_string(),
+                            )
+                            .into_libsql());
+                        }
+
+                        client_secret
+                    }
+                    ClientType::Public => String::new(),
+                };
+
+                key_service
+                    .ensure_entity_master_key(EntityType::Client, id, passphrase.as_str())
+                    .map_err(RepoError::into_libsql)?;
+
                 key_service
                     .key_repo()
                     .tx_create_key(
@@ -189,7 +220,7 @@ impl ClientRepo for LibSqlClientRepo {
                         EntityType::Client,
                         id,
                         true,
-                        client.client_name,
+                        client_name,
                         None,
                         transaction,
                     )

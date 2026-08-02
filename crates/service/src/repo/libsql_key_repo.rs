@@ -120,35 +120,8 @@ impl KeyRepo for LibSqlKeyRepo {
         entity_type: EntityType,
         entity_id: i64,
     ) -> RepoResult<Option<Key>> {
-        let conn = self.database.connect()?;
-        let query = r#"
-            SELECT
-                id,
-                parent_id,
-                entity_type,
-                entity_id,
-                derivation_path,
-                name,
-                hardened,
-                revoked_at,
-                expires_at,
-                created_at,
-                updated_at
-            FROM keys
-            WHERE entity_type = ? AND entity_id = ?
-                AND (revoked_at IS NULL OR revoked_at > unixepoch())
-                AND (expires_at IS NULL OR expires_at > unixepoch())
-            LIMIT 1
-        "#;
-
-        let mut rows = conn
-            .query(query, libsql::params![entity_type as i64, entity_id])
-            .await?;
-        if let Some(row) = rows.next().await? {
-            Ok(Some(from_row::<Key>(&row)?))
-        } else {
-            Ok(None)
-        }
+        self.find_active_entity_root_key(entity_type, entity_id)
+            .await
     }
 
     async fn create_key(
@@ -179,6 +152,44 @@ impl KeyRepo for LibSqlKeyRepo {
 
         Ok(key)
     }
+
+    async fn find_active_entity_root_key(
+        &self,
+        entity_type: EntityType,
+        entity_id: i64,
+    ) -> RepoResult<Option<Key>> {
+        let conn = self.database.connect()?;
+        let query = r#"
+            SELECT
+                id,
+                parent_id,
+                entity_type,
+                entity_id,
+                derivation_path,
+                name,
+                hardened,
+                revoked_at,
+                expires_at,
+                created_at,
+                updated_at
+            FROM keys
+            WHERE entity_type = ? AND entity_id = ?
+                AND (revoked_at IS NULL OR revoked_at > unixepoch())
+                AND (expires_at IS NULL OR expires_at > unixepoch())
+            ORDER BY created_at DESC
+            LIMIT 1
+        "#;
+
+        let mut rows = conn
+            .query(query, libsql::params![entity_type as i64, entity_id])
+            .await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(Some(from_row::<Key>(&row)?))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 impl LibSqlKeyRepo {
@@ -193,7 +204,14 @@ impl LibSqlKeyRepo {
         tx: &libsql::Transaction,
     ) -> RepoResult<Key> {
         let query = r#"
-            INSERT INTO keys (parent_id, entity_type, entity_id, name, hardened, expires_at)
+            INSERT INTO keys (
+                parent_id,
+                entity_type,
+                entity_id,
+                name,
+                hardened,
+                expires_at
+            )
             VALUES (?, ?, ?, ?, ?, ?)
             RETURNING *;
         "#;

@@ -20,6 +20,12 @@ pub trait KeyRepo {
         entity_id: i64,
     ) -> impl Future<Output = RepoResult<Option<Key>>>;
 
+    fn find_active_entity_root_key(
+        &self,
+        entity_type: EntityType,
+        entity_id: i64,
+    ) -> impl Future<Output = RepoResult<Option<Key>>>;
+
     fn create_key(
         &self,
         parent_id: Option<u32>,

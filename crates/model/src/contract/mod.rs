@@ -1,9 +1,9 @@
 mod access_token;
+mod approve_for_user_request;
 mod authorization_code_grant_request;
 mod authorization_code_response;
 mod authorization_request;
 mod authorization_server_metadata;
-mod approve_for_user_request;
 mod client_credentials;
 mod client_credentials_grant_request;
 mod client_profile;
@@ -52,11 +52,11 @@ mod user_info;
 mod version_response;
 
 pub use access_token::AccessToken;
+pub use approve_for_user_request::ApproveForUserRequest;
 pub use authorization_code_grant_request::AuthorizationCodeGrantRequest;
 pub use authorization_code_response::AuthorizationCodeResponse;
 pub use authorization_request::AuthorizationRequest;
 pub use authorization_server_metadata::AuthorizationServerMetadata;
-pub use approve_for_user_request::ApproveForUserRequest;
 pub use client_credentials::ClientCredentials;
 pub use client_credentials_grant_request::ClientCredentialsGrantRequest;
 pub use client_profile::ClientProfile;

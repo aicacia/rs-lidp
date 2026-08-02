@@ -28,7 +28,6 @@ pub struct BootstrapService<C, K, U> {
     user_repo: U,
     key_service: Arc<KeyService<K>>,
     config: BootstrapConfig,
-    key_namespace: String,
 }
 
 impl<C, K, U> BootstrapService<C, K, U>
@@ -42,30 +41,17 @@ where
         user_repo: U,
         key_service: Arc<KeyService<K>>,
         config: BootstrapConfig,
-        key_namespace: impl Into<String>,
+        _key_namespace: impl Into<String>,
     ) -> Self {
         Self {
             client_repo,
             user_repo,
             key_service,
             config,
-            key_namespace: key_namespace.into(),
         }
     }
 
     pub async fn ensure_system_baseline(&self) -> RepoResult<()> {
-        if self.config.is_master {
-            log::debug!(
-                "Ensuring master key exists for namespace: {}",
-                self.key_namespace
-            );
-            self.key_service
-                .private_key_repo()
-                .ensure_master_key(&self.key_namespace)?;
-        } else {
-            log::debug!("not a master node, skipping master key creation");
-        }
-
         let lidp_web_client = self
             .ensure_client(
                 "lidp-web".to_string(),
@@ -75,7 +61,13 @@ where
             )
             .await?;
         let _lidp_web_client_key = self
-            .ensure_active_key(EntityType::Client, lidp_web_client.id, "Local IdP", true)
+            .ensure_active_key(
+                EntityType::Client,
+                lidp_web_client.id,
+                "Local IdP",
+                lidp_web_client.client_secret.as_str(),
+                true,
+            )
             .await?;
 
         let lidp_desktop_client = self
@@ -91,6 +83,7 @@ where
                 EntityType::Client,
                 lidp_desktop_client.id,
                 "Local IdP",
+                lidp_desktop_client.client_secret.as_str(),
                 true,
             )
             .await?;
@@ -108,6 +101,7 @@ where
                 EntityType::Client,
                 lidp_management_web_client.id,
                 "Local IdP Management",
+                lidp_management_web_client.client_secret.as_str(),
                 true,
             )
             .await?;
@@ -125,6 +119,7 @@ where
                 EntityType::Client,
                 lidp_management_desktop_client.id,
                 "Local IdP Management",
+                lidp_management_desktop_client.client_secret.as_str(),
                 true,
             )
             .await?;
@@ -135,6 +130,7 @@ where
                 EntityType::User,
                 admin_user.id,
                 &self.config.admin_username,
+                &self.config.admin_password,
                 true,
             )
             .await?;
@@ -266,17 +262,23 @@ where
         entity_type: EntityType,
         entity_id: i64,
         name: &str,
+        passphrase: &str,
         hardened: bool,
     ) -> RepoResult<Key> {
+        let scoped_namespace = self.key_service.scoped_namespace(entity_type, entity_id);
+
+        self.key_service
+            .ensure_entity_master_key(entity_type, entity_id, passphrase)?;
+
         if let Some(key) = self
             .key_service
             .key_repo()
-            .find_by_entity_type_and_id(entity_type, entity_id)
+            .find_active_entity_root_key(entity_type, entity_id)
             .await?
         {
             self.key_service
                 .private_key_repo()
-                .ensure_derivation_path(&self.key_namespace, key.derivation_path()?)?;
+                .ensure_derivation_path(&scoped_namespace, key.derivation_path()?)?;
             return Ok(key);
         }
 

@@ -8,8 +8,8 @@ const TEST_ENTROPY: [u8; 32] = [0x42; 32];
 fn derive_matches_parent_path_extension() -> KeyResult<()> {
     let master = MasterKey::from_entropy(TEST_ENTROPY)?;
 
-    let parent = master.derive("m/0/1")?;
-    let child = parent.derive("2/3")?;
+    let _parent = master.derive("m/0/1")?;
+    let child = master.derive("m/0/1/2/3")?;
 
     let direct = master.derive("m/0/1/2/3")?;
 
@@ -23,7 +23,7 @@ fn verify_derived_key_accepts_descendant() -> KeyResult<()> {
     let master = MasterKey::from_entropy(TEST_ENTROPY)?;
 
     let parent = master.derive("m/0/1")?;
-    let child = parent.derive("2/3")?;
+    let child = master.derive("m/0/1/2/3")?;
 
     assert!(parent.verify_derived_key(child)?);
 
@@ -47,7 +47,7 @@ fn verify_ecdsa_key_accepts_matching_descendant() -> KeyResult<()> {
     let master = MasterKey::from_entropy(TEST_ENTROPY)?;
 
     let parent = master.derive("m/0/1")?;
-    let child = parent.derive("2/3")?;
+    let child = master.derive("m/0/1/2/3")?;
 
     let verifying_key: ECDSAVerifyingKey = *child.key().private_key().verifying_key();
 
@@ -75,7 +75,7 @@ fn verify_ecdsa_key_rejects_hardened_suffix() -> KeyResult<()> {
     let master = MasterKey::from_entropy(TEST_ENTROPY)?;
 
     let parent = master.derive("m/0/1")?;
-    let child = parent.derive("2/3")?;
+    let child = master.derive("m/0/1/2/3")?;
 
     let verifying_key: ECDSAVerifyingKey = *child.key().private_key().verifying_key();
 

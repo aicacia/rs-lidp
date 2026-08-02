@@ -55,10 +55,38 @@ where
             )
             .await?;
 
+        let scoped_namespace = self.scoped_namespace(entity_type, entity_id);
+
         let private_key = self
             .private_key_repo
-            .ensure_derivation_path(&self.namespace, key.derivation_path()?)?;
+            .ensure_derivation_path(&scoped_namespace, key.derivation_path()?)?;
 
         Ok((key, private_key))
+    }
+
+    pub fn scoped_namespace(&self, entity_type: EntityType, entity_id: i64) -> String {
+        format!("{}:{entity_type}:{entity_id}", self.namespace)
+    }
+
+    pub fn ensure_entity_master_key(
+        &self,
+        entity_type: EntityType,
+        entity_id: i64,
+        passphrase: &str,
+    ) -> RepoResult<DerivedKey> {
+        let scoped_namespace = self.scoped_namespace(entity_type, entity_id);
+        self.private_key_repo
+            .ensure_master_key_with_passphrase(&scoped_namespace, passphrase)
+    }
+
+    pub async fn rotate_active_entity_root_key(
+        &self,
+        entity_type: EntityType,
+        entity_id: i64,
+        name: String,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> RepoResult<(Key, DerivedKey)> {
+        self.create_key(None, entity_type, entity_id, true, name, expires_at)
+            .await
     }
 }
