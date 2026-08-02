@@ -28,7 +28,7 @@ pub(crate) struct ListClientsQuery {
     params(ListClientsQuery),
     responses((status = 200, description = "List clients", body = [ClientRegistration])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_clients(
@@ -53,7 +53,7 @@ pub(crate) async fn list_clients(
     request_body = ClientRegistration,
     responses((status = 201, description = "Create client", body = ClientRegistration)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn create_client(
@@ -76,7 +76,7 @@ pub(crate) async fn create_client(
     ),
     responses((status = 200, description = "Get client", body = ClientRegistration)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn get_client(
@@ -100,7 +100,7 @@ pub(crate) async fn get_client(
     request_body = ClientRegistration,
     responses((status = 200, description = "Update client", body = ClientRegistration)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn update_client(
@@ -125,7 +125,7 @@ pub(crate) async fn update_client(
     ),
     responses((status = 204, description = "Delete client")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn delete_client(

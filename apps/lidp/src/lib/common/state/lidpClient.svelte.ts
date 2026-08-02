@@ -9,10 +9,10 @@ import { page } from "$app/state";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
 import { createStorage } from "@aicacia/svelte-headless";
 import { env } from "$env/dynamic/public";
+import { getOidcClient } from "./oidc.svelte";
 
 const lidpApiUrl = createStorage<string | null>("lidp-api-url", env.PUBLIC_LIDP_BASE_URL ?? null);
 let lidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"));
-let authToken = $state<string | undefined>();
 
 export const defaultConfigurationParameters: ConfigurationParameters = {
   middleware: [
@@ -29,7 +29,6 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
       post: async (context) => {
         if (context.response.status === 401) {
           setAfterSigninRedirectPathFromURL(page.url);
-          authToken = undefined;
           await goto(resolve("/signin"));
         }
         return context.response;
@@ -40,8 +39,8 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
     // TODO: create a IPC fetch API for tauri
     return lidpApiIsNative ? fetch : fetch
   },
-  accessToken() {
-    return authToken as string;
+  accessToken(_name, _scopes) {
+    return getOidcClient().getStoredTokenResponse().access_token;
   },
   get basePath() {
     return lidpApiUrl.item;
@@ -54,13 +53,6 @@ export const lidpConfiguration = new Configuration(
 );
 
 export const lidpApi = new DefaultApi(lidpConfiguration);
-
-export function setAuthToken(newAuthToken?: string | null) {
-  authToken = newAuthToken ?? undefined;
-}
-export function getAuthToken() {
-  return authToken;
-}
 
 export function setLidpApiUrl(newLidpApiUrl: string) {
   lidpApiUrl.item = newLidpApiUrl;

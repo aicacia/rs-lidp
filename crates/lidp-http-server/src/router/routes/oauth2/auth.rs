@@ -13,7 +13,7 @@ use crate::router::{RouterState, middleware::StandardAuthorization};
     request_body(content = AuthorizationRequest, content_type = "application/json"),
     responses((status = 200, description = "Authorization response", body = AuthorizationCodeResponse)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn authorize_json(
@@ -21,7 +21,10 @@ pub(crate) async fn authorize_json(
     StandardAuthorization { principal, .. }: StandardAuthorization,
     Json(request): Json<AuthorizationRequest>,
 ) -> Result<Json<AuthorizationCodeResponse>, ErrorResponse> {
-    let response = state.oauth2_service.authorize(request, principal.as_ref()).await?;
+    let response = state
+        .oauth2_service
+        .authorize(request, principal.as_ref())
+        .await?;
     Ok(Json(response))
 }
 
@@ -50,8 +53,9 @@ async fn redirect_to_authorize_ui(
     let query_string = if let Some(raw_query) = raw_query {
         raw_query
     } else {
-        serde_qs::to_string(&request)
-            .map_err(|e| ErrorResponse::new(ErrorCode::ServerError).with_description(e.to_string()))?
+        serde_qs::to_string(&request).map_err(|e| {
+            ErrorResponse::new(ErrorCode::ServerError).with_description(e.to_string())
+        })?
     };
 
     if !redirect_url.ends_with('/') {

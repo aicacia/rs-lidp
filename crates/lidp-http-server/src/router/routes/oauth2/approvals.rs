@@ -11,7 +11,7 @@ use crate::router::{RouterState, middleware::StandardAuthorization};
     request_body(content = IsAllowedForUserRequest, content_type = "application/json"),
     responses((status = 200, description = "User approval status", body = IsAllowedForUserResponse)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn is_allowed_for_user(
@@ -32,7 +32,7 @@ pub(crate) async fn is_allowed_for_user(
     request_body(content = ApproveForUserRequest, content_type = "application/json"),
     responses((status = 200, description = "Client approved", body = IsAllowedForUserResponse)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn approve_for_user(

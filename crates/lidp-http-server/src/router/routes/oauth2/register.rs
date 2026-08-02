@@ -12,7 +12,7 @@ use crate::router::{RouterState, middleware::StandardAuthorization};
     request_body = ClientRegistration,
     responses((status = 201, description = "Register client", body = ClientRegistration)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn register(
@@ -50,7 +50,7 @@ pub(crate) async fn get_register(
     ),
     responses((status = 204, description = "Delete client")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn delete_register(
@@ -70,7 +70,7 @@ pub(crate) async fn delete_register(
     request_body = ClientRegistration,
     responses((status = 200, description = "Update client", body = ClientRegistration)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn put_register(

@@ -57,7 +57,7 @@ pub(crate) struct ListUserConsentsQuery {
     ),
     responses((status = 200, description = "List user consents", body = [UserConsentResponse])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_user_consents(
@@ -85,7 +85,7 @@ pub(crate) async fn list_user_consents(
     ),
     responses((status = 204, description = "Revoke user consent")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn revoke_user_consent(

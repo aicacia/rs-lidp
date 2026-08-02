@@ -53,7 +53,7 @@ impl From<Key> for ManagementKey {
     ),
     responses((status = 200, description = "List client keys", body = [ManagementKey])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_client_keys(
@@ -75,7 +75,7 @@ pub(crate) async fn list_client_keys(
     ),
     responses((status = 200, description = "Get public JWK for key", body = JwkPublic)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn get_key_jwk(

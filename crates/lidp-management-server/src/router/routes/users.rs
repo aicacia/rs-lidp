@@ -29,7 +29,7 @@ pub(crate) struct ListUsersQuery {
     params(ListUsersQuery),
     responses((status = 200, description = "List users", body = [UserInfo])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_users(
@@ -55,7 +55,7 @@ pub(crate) async fn list_users(
     ),
     responses((status = 200, description = "Get user", body = UserInfo)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn get_user(
@@ -103,7 +103,7 @@ pub(crate) struct ResetUserPasswordRequest {
     request_body = UpdateUserRequest,
     responses((status = 200, description = "Update user", body = UserInfo)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn update_user(
@@ -152,7 +152,7 @@ pub(crate) async fn update_user(
     request_body = ResetUserPasswordRequest,
     responses((status = 204, description = "Reset user password")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn reset_user_password(
@@ -177,7 +177,7 @@ pub(crate) async fn reset_user_password(
     ),
     responses((status = 204, description = "Delete user")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn delete_user(

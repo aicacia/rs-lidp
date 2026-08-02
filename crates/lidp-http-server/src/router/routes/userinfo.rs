@@ -8,7 +8,7 @@ use crate::router::{RouterState, middleware::StandardAuthorization};
     path = "/userinfo",
     responses((status = 200, description = "Userinfo", body = UserInfo)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn userinfo(

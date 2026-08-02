@@ -78,7 +78,7 @@ pub(crate) struct CreateRoleRequest {
     params(ListRolesQuery),
     responses((status = 200, description = "List roles", body = [RoleResponse])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_roles(
@@ -103,7 +103,7 @@ pub(crate) async fn list_roles(
     request_body = CreateRoleRequest,
     responses((status = 201, description = "Create role", body = RoleResponse)),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn create_role(
@@ -131,7 +131,7 @@ pub(crate) async fn create_role(
     ),
     responses((status = 204, description = "Delete role")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn delete_role(
@@ -167,7 +167,7 @@ pub(crate) async fn delete_role(
     ),
     responses((status = 200, description = "List user roles", body = [UserRoleResponse])),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn list_user_roles(
@@ -195,7 +195,7 @@ pub(crate) async fn list_user_roles(
     ),
     responses((status = 204, description = "Assign role to user")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn assign_role_to_user(
@@ -232,7 +232,7 @@ pub(crate) async fn assign_role_to_user(
     ),
     responses((status = 204, description = "Revoke role from user")),
     security(
-        ("Authorization" = [])
+        ("authorization" = [])
     )
 )]
 pub(crate) async fn revoke_role_from_user(
