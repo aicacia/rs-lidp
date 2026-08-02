@@ -930,6 +930,7 @@ where
             access_token: AccessToken(access_token_value),
             token_type: TokenType::Bearer,
             expires_in: Some(self.oauth_config.token_ttl_secs),
+            refresh_token_expires_in: Some(self.oauth_config.refresh_token_ttl_secs),
             refresh_token: Some(RefreshToken(refresh_token_value)),
             scope,
             issuer: Some(self.oauth_config.issuer.clone()),
@@ -1063,9 +1064,8 @@ where
             .map_err(ErrorResponse::from)?
             .is_none()
         {
-            return Err(
-                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
-            );
+            return Err(ErrorResponse::new(ErrorCode::NotFound)
+                .with_description("User not found".to_string()));
         }
 
         self.user_repo
@@ -1082,9 +1082,8 @@ where
             .map_err(ErrorResponse::from)?
             .is_none()
         {
-            return Err(
-                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
-            );
+            return Err(ErrorResponse::new(ErrorCode::NotFound)
+                .with_description("User not found".to_string()));
         }
 
         self.user_repo
@@ -1106,9 +1105,8 @@ where
             .map_err(ErrorResponse::from)?
             .is_none()
         {
-            return Err(
-                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
-            );
+            return Err(ErrorResponse::new(ErrorCode::NotFound)
+                .with_description("User not found".to_string()));
         }
 
         self.oauth2_user_consent_repo
@@ -1117,7 +1115,11 @@ where
             .map_err(ErrorResponse::from)
     }
 
-    pub async fn revoke_user_consent(&self, user_id: i64, consent_id: i64) -> ErrorResponseResult<()> {
+    pub async fn revoke_user_consent(
+        &self,
+        user_id: i64,
+        consent_id: i64,
+    ) -> ErrorResponseResult<()> {
         if self
             .user_repo
             .find_user_by_id(user_id)
@@ -1125,9 +1127,8 @@ where
             .map_err(ErrorResponse::from)?
             .is_none()
         {
-            return Err(
-                ErrorResponse::new(ErrorCode::NotFound).with_description("User not found".to_string())
-            );
+            return Err(ErrorResponse::new(ErrorCode::NotFound)
+                .with_description("User not found".to_string()));
         }
 
         let consent = self
@@ -1141,9 +1142,8 @@ where
             })?;
 
         if consent.user_id != user_id {
-            return Err(
-                ErrorResponse::new(ErrorCode::NotFound).with_description("User consent not found".to_string())
-            );
+            return Err(ErrorResponse::new(ErrorCode::NotFound)
+                .with_description("User consent not found".to_string()));
         }
 
         self.oauth2_user_consent_repo

@@ -34,7 +34,7 @@ export interface TokenResponse {
      */
     accessToken: string;
     /**
-     * The lifetime in seconds of the access token.
+     * The lifetime in seconds of the id/access token.
      * @type {number}
      * @memberof TokenResponse
      */
@@ -57,6 +57,12 @@ export interface TokenResponse {
      * @memberof TokenResponse
      */
     refreshToken?: string;
+    /**
+     * The lifetime in seconds of the refresh token.
+     * @type {number}
+     * @memberof TokenResponse
+     */
+    refreshTokenExpiresIn?: number | null;
     /**
      * The scope of the access token as described by the authorization server.
      * @type {string}
@@ -98,6 +104,7 @@ export function TokenResponseFromJSONTyped(json: any, ignoreDiscriminator: boole
         'idToken': json['id_token'],
         'iss': json['iss'] == null ? undefined : json['iss'],
         'refreshToken': json['refresh_token'] == null ? undefined : json['refresh_token'],
+        'refreshTokenExpiresIn': json['refresh_token_expires_in'] == null ? undefined : json['refresh_token_expires_in'],
         'scope': json['scope'] == null ? undefined : json['scope'],
         'tokenType': TokenTypeFromJSON(json['token_type']),
     };
@@ -119,6 +126,7 @@ export function TokenResponseToJSONTyped(value?: TokenResponse | null, ignoreDis
         'id_token': value['idToken'],
         'iss': value['iss'],
         'refresh_token': value['refreshToken'],
+        'refresh_token_expires_in': value['refreshTokenExpiresIn'],
         'scope': value['scope'],
         'token_type': TokenTypeToJSON(value['tokenType']),
     };

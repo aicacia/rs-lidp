@@ -1,3 +1,8 @@
+DROP INDEX IF EXISTS "idx_management_user_roles_role_id";
+DROP INDEX IF EXISTS "idx_management_user_roles_user_id";
+DROP TABLE IF EXISTS "management_user_roles";
+DROP TABLE IF EXISTS "management_roles";
+
 DROP INDEX IF EXISTS "idx_oauth2_user_consents_user_client";
 DROP TABLE IF EXISTS "oauth2_user_consents";
 

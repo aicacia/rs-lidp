@@ -1,10 +1,10 @@
 import { OidcClient } from "@aicacia/oidc-client";
+import { isTauri } from "@tauri-apps/api/core";
 import { env } from "$env/dynamic/public";
 import icon256x256Png from "$lib/assets/icon256x256.png";
 import { getLidpApiUrl } from "./lidpClient.svelte";
-import { isTauri } from "@tauri-apps/api/core";
 
-const CLIENT_ID = isTauri() ? "lidp-management-desktop" : "lidp-management-web";
+const CLIENT_ID = isTauri() ? "lidp-desktop" : "lidp-web";
 
 const oidcClient = $derived.by(
   () =>
@@ -16,7 +16,7 @@ const oidcClient = $derived.by(
         responseType: "code",
         registration: {
           clientId: CLIENT_ID,
-          clientName: "Local IdP Management",
+          clientName: "Local IdP",
           scope: "openid profile address offline email phone",
           redirectUris: [`${env.PUBLIC_URL}/callback`],
           postLogoutRedirectUris: [`${env.PUBLIC_URL}/logout`],

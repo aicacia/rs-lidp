@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
-	import { logout } from "$lib/common/state/auth.svelte";
+    import { getOidcClient } from "$lib/common/state/oidc.svelte";
 	import { m } from "$lib/paraglide/messages";
 	import type { PageProps } from "./$types";
 
@@ -17,8 +17,8 @@
 	);
 
 	async function onSignOut() {
-		await logout();
-		goto(resolve("/signin"));
+	    await getOidcClient().signout();
+		await goto(resolve("/signin"));
 	}
 </script>
 

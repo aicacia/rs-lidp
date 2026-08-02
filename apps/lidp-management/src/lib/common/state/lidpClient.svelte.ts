@@ -11,7 +11,7 @@ import { createStorage } from "@aicacia/svelte-headless";
 import { env } from "$env/dynamic/public";
 
 const lidpApiUrl = createStorage<string | null>("lidp-api-url", env.PUBLIC_LIDP_BASE_URL ?? null);
-let isLidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"))
+let lidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"));
 let authToken = $state<string | undefined>();
 
 export const defaultConfigurationParameters: ConfigurationParameters = {
@@ -38,7 +38,7 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
   ],
   get fetchApi() {
     // TODO: create a IPC fetch API for tauri
-    return isLidpApiIsNative ? fetch : fetch
+    return lidpApiIsNative ? fetch : fetch
   },
   accessToken() {
     return authToken as string;
@@ -53,8 +53,6 @@ export const lidpConfiguration = new Configuration(
   defaultConfigurationParameters,
 );
 
-export const lidpApi = new DefaultApi(lidpConfiguration);
-
 export function setAuthToken(newAuthToken?: string | null) {
   authToken = newAuthToken ?? undefined;
 }
@@ -67,6 +65,10 @@ export function setLidpApiUrl(newLidpApiUrl: string) {
 }
 export function getLidpApiUrl(): string | null {
   return lidpApiUrl.item;
+}
+
+export function isLidpApiNative(): boolean {
+  return lidpApiIsNative;
 }
 
 export async function validateLidpApiUrl(basePath: string): Promise<boolean> {
