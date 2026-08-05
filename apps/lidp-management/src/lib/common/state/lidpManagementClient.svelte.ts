@@ -10,7 +10,10 @@ import { page } from "$app/state";
 import { env } from "$env/dynamic/public";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
 
-const lidpManagementApiUrl = createStorage<string | null>("lidp-management-api-url", env.PUBLIC_LIDP_MANAGEMENT_BASE_URL);
+const lidpManagementApiUrl = createStorage<string | null>(
+    "lidp-management-api-url",
+    env.PUBLIC_LIDP_MANAGEMENT_BASE_URL,
+);
 
 let authToken = $state<string | undefined>();
 
@@ -65,18 +68,18 @@ export function getLidpManagementApiUrl(): string | null {
 export async function validateLidpManagementApiUrl(
     basePath: string,
 ): Promise<boolean> {
-  if (!basePath) {
-    return false;
-  }
+    if (!basePath) {
+        return false;
+    }
     const configuration = new Configuration({
         ...defaultConfigurationParameters,
         basePath,
     });
     const api = new DefaultApi(configuration);
 
-  try {
-    const version = await api.version();
-    return version.name === "lidp-management-server";
+    try {
+        const version = await api.version();
+        return version.name === "lidp-management-server";
     } catch {
         return false;
     }

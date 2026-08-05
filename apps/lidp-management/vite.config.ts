@@ -5,11 +5,11 @@ import { defineConfig } from "vite";
 import devtoolsJson from "vite-plugin-devtools-json";
 
 function parseInteger(value?: string, defaultValue?: number): number {
-  try {
-    return Number.parseInt(value, 10);
-  } catch {
-    return defaultValue;
-  }
+    try {
+        return Number.parseInt(value, 10);
+    } catch {
+        return defaultValue;
+    }
 }
 
 export default defineConfig({
@@ -24,11 +24,11 @@ export default defineConfig({
         }),
     ],
     server: {
-      port: parseInteger(process.env.PORT, 5173),
-      strictPort: true
+        port: parseInteger(process.env.PORT, 5173),
+        strictPort: true,
     },
     preview: {
-      port: parseInteger(process.env.PORT, 5173),
-      strictPort: true
+        port: parseInteger(process.env.PORT, 5173),
+        strictPort: true,
     },
 });

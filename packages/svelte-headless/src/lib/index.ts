@@ -6,4 +6,4 @@ export {
 export { isOnline } from "$lib/state/online.svelte";
 export { createStorage } from "$lib/state/storage.svelte";
 export { getTheme, setTheme, type ThemeType } from "$lib/state/theme.svelte";
-export { createReturnTo, type ReturnToOptions } from './state/createReturnTo';
+export { createReturnTo, type ReturnToOptions } from "./state/createReturnTo";
