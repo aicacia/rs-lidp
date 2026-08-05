@@ -1,5 +1,5 @@
 [package]
-name = "lidp-http-server"
+name = "lidp-server"
 version = "0.1.0"
 publish = false
 authors.workspace = true
@@ -10,10 +10,10 @@ rust-version.workspace = true
 description = "OIDC / OAuth 2.x server implementation"
 
 [lib]
-name = "lidp_http_server"
+name = "lidp_server"
 
 [[bin]]
-name = "lidp-http-server"
+name = "lidp-server"
 path = "src/main.rs"
 required-features = ["cli"]
 

@@ -32,7 +32,7 @@
 	</div>
 
 	<div class="mt-4 flex flex-row justify-end">
-		<button onclick={() => (showCode = !showCode)} class="btn primary">
+		<button type="button" onclick={() => (showCode = !showCode)} class="btn primary">
 			{showCode ? 'Hide Code' : 'Show Code'}
 		</button>
 	</div>

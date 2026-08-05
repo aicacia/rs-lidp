@@ -30,6 +30,12 @@ export interface VersionResponse {
      * @type {string}
      * @memberof VersionResponse
      */
+    name: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof VersionResponse
+     */
     version: string;
 }
 
@@ -38,6 +44,7 @@ export interface VersionResponse {
  */
 export function instanceOfVersionResponse(value: object): value is VersionResponse {
     if (!('build' in value) || value['build'] === undefined) return false;
+    if (!('name' in value) || value['name'] === undefined) return false;
     if (!('version' in value) || value['version'] === undefined) return false;
     return true;
 }
@@ -53,6 +60,7 @@ export function VersionResponseFromJSONTyped(json: any, ignoreDiscriminator: boo
     return {
         
         'build': (new Date(json['build'])),
+        'name': json['name'],
         'version': json['version'],
     };
 }
@@ -69,6 +77,7 @@ export function VersionResponseToJSONTyped(value?: VersionResponse | null, ignor
     return {
         
         'build': ((value['build']).toISOString()),
+        'name': value['name'],
         'version': value['version'],
     };
 }

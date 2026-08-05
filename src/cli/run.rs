@@ -95,13 +95,13 @@ pub async fn run() -> io::Result<()> {
         app_config.key_namespace.clone(),
     ));
 
-    let lidp_router_state = lidp_http_server::RouterState::new(
+    let lidp_router_state = lidp_server::RouterState::new(
         &app_config.ui_public_url,
         &app_config.api_public_url,
         database.clone(),
         oauth2_service.clone(),
     );
-    let lidp_router = lidp_http_server::openapi_router(lidp_router_state, "/lidp");
+    let lidp_router = lidp_server::openapi_router(lidp_router_state, "/lidp");
 
     let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
     let management_router_state = lidp_management_server::RouterState::new(

@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface AuthorizeProps {
-		userInfo: UserInfo;
+		userInfo: OidcUserInfo;
 		authorizationRequest: AuthorizationRequest;
 		registration?: string;
 	}
@@ -10,7 +10,6 @@
 	import type {
 		AuthorizationRequest,
 		ClientRegistration,
-		UserInfo,
 	} from "@aicacia/lidp-client";
 	import { LoaderCircle } from "@lucide/svelte";
 	import { isTauri } from "@tauri-apps/api/core";
@@ -22,6 +21,7 @@
 		rejectAuthorizationRequest,
 		resolveAuthorizationRequest,
 	} from "./_utils";
+    import type { OidcUserInfo } from "@aicacia/oidc-client";
 
 	let { userInfo, authorizationRequest, registration }: AuthorizeProps =
 		$props();

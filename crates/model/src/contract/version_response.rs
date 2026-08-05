@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct VersionResponse {
+    pub name: String,
     pub version: String,
     pub build: DateTime<Utc>,
 }
@@ -25,6 +26,7 @@ pub struct VersionResponse {
 impl Default for VersionResponse {
     fn default() -> Self {
         Self {
+            name: env!("CARGO_PKG_NAME").to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             build: DateTime::parse_from_rfc3339(build_time_utc!())
                 .expect("invalid build time")

@@ -41,7 +41,7 @@ db = { path = "./crates/db", default-features = false, features = [
 model = { path = "./crates/model", default-features = false, features = [
   "migrate",
 ] }
-lidp-http-server = { path = "./crates/lidp-http-server", default-features = false, features = [
+lidp-server = { path = "./crates/lidp-server", default-features = false, features = [
   "remote",
 ] }
 lidp-management-server = { path = "./crates/lidp-management-server", default-features = false, features = [
@@ -105,7 +105,7 @@ members = [
   "crates/key",
   "crates/lidp-management-server",
   "crates/model",
-  "crates/lidp-http-server",
+  "crates/lidp-server",
   "crates/service",
 ]
 

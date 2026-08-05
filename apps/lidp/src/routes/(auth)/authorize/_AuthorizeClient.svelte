@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface ClientProps {
-		userInfo: UserInfo;
+		userInfo: OidcUserInfo;
 		client: ClientRegistration;
 		disabled?: boolean;
 		onAllow: () => Promise<void>;
@@ -10,8 +10,9 @@
 
 <script lang="ts">
 	import { m } from "$lib/paraglide/messages";
-	import type { ClientRegistration, UserInfo } from "@aicacia/lidp-client";
+	import type { ClientRegistration } from "@aicacia/lidp-client";
 	import Avatar from "../../../lib/common/components/Avatar.svelte";
+    import type { OidcUserInfo } from "@aicacia/oidc-client";
 
 	let { userInfo, client, disabled, onAllow, onDeny }: ClientProps = $props();
 

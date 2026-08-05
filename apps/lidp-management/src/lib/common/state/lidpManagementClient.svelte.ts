@@ -74,8 +74,9 @@ export async function validateLidpManagementApiUrl(
     });
     const api = new DefaultApi(configuration);
 
-    try {
-        return (await api.version()) != null;
+  try {
+    const version = await api.version();
+    return version.name === "lidp-management-server";
     } catch {
         return false;
     }

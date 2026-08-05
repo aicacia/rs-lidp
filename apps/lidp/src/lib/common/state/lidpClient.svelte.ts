@@ -76,7 +76,8 @@ export async function validateLidpApiUrl(basePath: string): Promise<boolean> {
   const api = new DefaultApi(configuration);
 
   try {
-    return (await api.version()) != null;
+    const version = await api.version();
+    return version.name === "lidp-server";
   } catch {
     return false;
   }
