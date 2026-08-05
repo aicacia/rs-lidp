@@ -6,7 +6,7 @@ use model::contract::{
 use crate::router::{RouterState, middleware::StandardAuthorization};
 
 #[utoipa::path(
-    get,
+    post,
     path = "/oauth2/auth/allowed-for-user",
     request_body(content = IsAllowedForUserRequest, content_type = "application/json"),
     responses((status = 200, description = "User approval status", body = IsAllowedForUserResponse)),

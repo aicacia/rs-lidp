@@ -39,7 +39,7 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
         },
     ],
     get fetchApi() {
-        // TODO: create a IPC fetch API for tauri
+        // TODO: create a IPC fetch API for tauri);
         return lidpApiIsNative ? fetch : fetch;
     },
     accessToken(_name, _scopes) {

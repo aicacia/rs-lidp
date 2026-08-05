@@ -120,7 +120,10 @@
 		);
 		lidpApi
 			.getRegister({ clientId: authorizationRequest.clientId })
-			.catch((_e) => null)
+			.catch((e) => {
+			  console.error("Error fetching client info", e);
+			  return null;
+			})
 			.then((c) => {
 				client = c;
 			})
@@ -159,8 +162,9 @@
 					onAuthorize();
 				}
 			})
-			.catch(() => {
+			.catch((error) => {
 				// Not yet approved or scopes changed; fall back to consent screen
+			  console.error("Error checking if user has allowed client", error);
 			})
 			.finally(() => {
 				loadingUserAllowed = false;

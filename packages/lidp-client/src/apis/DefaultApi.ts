@@ -1109,7 +1109,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         const response = await this.request(
             {
                 path: urlPath,
-                method: "GET",
+                method: "POST",
                 headers: headerParameters,
                 query: queryParameters,
                 body: IsAllowedForUserRequestToJSON(
