@@ -24,7 +24,7 @@ export type TokenType = (typeof TokenType)[keyof typeof TokenType];
 
 export function instanceOfTokenType(value: any): boolean {
     for (const key in TokenType) {
-        if (Object.hasOwn(TokenType, key)) {
+        if (Object.prototype.hasOwnProperty.call(TokenType, key)) {
             if (TokenType[key as keyof typeof TokenType] === value) {
                 return true;
             }

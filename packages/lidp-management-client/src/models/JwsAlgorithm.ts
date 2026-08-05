@@ -32,7 +32,7 @@ export type JwsAlgorithm = (typeof JwsAlgorithm)[keyof typeof JwsAlgorithm];
 
 export function instanceOfJwsAlgorithm(value: any): boolean {
     for (const key in JwsAlgorithm) {
-        if (Object.hasOwn(JwsAlgorithm, key)) {
+        if (Object.prototype.hasOwnProperty.call(JwsAlgorithm, key)) {
             if (JwsAlgorithm[key as keyof typeof JwsAlgorithm] === value) {
                 return true;
             }

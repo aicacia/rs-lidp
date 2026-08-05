@@ -29,7 +29,7 @@ export type TokenEndpointAuthMethod =
 export function instanceOfTokenEndpointAuthMethod(value: any): boolean {
     for (const key in TokenEndpointAuthMethod) {
         if (
-            Object.hasOwn(TokenEndpointAuthMethod, key)
+            Object.prototype.hasOwnProperty.call(TokenEndpointAuthMethod, key)
         ) {
             if (
                 TokenEndpointAuthMethod[

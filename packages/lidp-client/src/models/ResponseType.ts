@@ -24,7 +24,7 @@ export type ResponseType = (typeof ResponseType)[keyof typeof ResponseType];
 
 export function instanceOfResponseType(value: any): boolean {
     for (const key in ResponseType) {
-        if (Object.hasOwn(ResponseType, key)) {
+        if (Object.prototype.hasOwnProperty.call(ResponseType, key)) {
             if (ResponseType[key as keyof typeof ResponseType] === value) {
                 return true;
             }

@@ -32,7 +32,7 @@ export type SubjectTokenType =
 
 export function instanceOfSubjectTokenType(value: any): boolean {
     for (const key in SubjectTokenType) {
-        if (Object.hasOwn(SubjectTokenType, key)) {
+        if (Object.prototype.hasOwnProperty.call(SubjectTokenType, key)) {
             if (
                 SubjectTokenType[key as keyof typeof SubjectTokenType] === value
             ) {

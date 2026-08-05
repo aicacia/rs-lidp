@@ -24,7 +24,7 @@ export type ClientType = (typeof ClientType)[keyof typeof ClientType];
 
 export function instanceOfClientType(value: any): boolean {
     for (const key in ClientType) {
-        if (Object.hasOwn(ClientType, key)) {
+        if (Object.prototype.hasOwnProperty.call(ClientType, key)) {
             if (ClientType[key as keyof typeof ClientType] === value) {
                 return true;
             }

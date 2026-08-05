@@ -25,7 +25,7 @@ export type ClientProfile = (typeof ClientProfile)[keyof typeof ClientProfile];
 
 export function instanceOfClientProfile(value: any): boolean {
     for (const key in ClientProfile) {
-        if (Object.hasOwn(ClientProfile, key)) {
+        if (Object.prototype.hasOwnProperty.call(ClientProfile, key)) {
             if (ClientProfile[key as keyof typeof ClientProfile] === value) {
                 return true;
             }

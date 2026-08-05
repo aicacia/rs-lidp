@@ -24,7 +24,7 @@ export type ResponseMode = (typeof ResponseMode)[keyof typeof ResponseMode];
 
 export function instanceOfResponseMode(value: any): boolean {
     for (const key in ResponseMode) {
-        if (Object.hasOwn(ResponseMode, key)) {
+        if (Object.prototype.hasOwnProperty.call(ResponseMode, key)) {
             if (ResponseMode[key as keyof typeof ResponseMode] === value) {
                 return true;
             }

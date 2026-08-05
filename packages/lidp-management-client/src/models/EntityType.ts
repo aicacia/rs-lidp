@@ -24,7 +24,7 @@ export type EntityType = (typeof EntityType)[keyof typeof EntityType];
 
 export function instanceOfEntityType(value: any): boolean {
     for (const key in EntityType) {
-        if (Object.hasOwn(EntityType, key)) {
+        if (Object.prototype.hasOwnProperty.call(EntityType, key)) {
             if (EntityType[key as keyof typeof EntityType] === value) {
                 return true;
             }

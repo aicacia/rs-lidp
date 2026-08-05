@@ -24,7 +24,7 @@ export type KeyUse = (typeof KeyUse)[keyof typeof KeyUse];
 
 export function instanceOfKeyUse(value: any): boolean {
     for (const key in KeyUse) {
-        if (Object.hasOwn(KeyUse, key)) {
+        if (Object.prototype.hasOwnProperty.call(KeyUse, key)) {
             if (KeyUse[key as keyof typeof KeyUse] === value) {
                 return true;
             }

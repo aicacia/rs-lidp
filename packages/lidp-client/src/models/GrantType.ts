@@ -26,7 +26,7 @@ export type GrantType = (typeof GrantType)[keyof typeof GrantType];
 
 export function instanceOfGrantType(value: any): boolean {
     for (const key in GrantType) {
-        if (Object.hasOwn(GrantType, key)) {
+        if (Object.prototype.hasOwnProperty.call(GrantType, key)) {
             if (GrantType[key as keyof typeof GrantType] === value) {
                 return true;
             }

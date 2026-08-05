@@ -689,7 +689,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/clients`;
+        let urlPath = `/clients`;
 
         const response = await this.request(
             {
@@ -750,7 +750,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/roles`;
+        let urlPath = `/roles`;
 
         const response = await this.request(
             {
@@ -1134,7 +1134,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/health`;
+        let urlPath = `/health`;
 
         const response = await this.request(
             {
@@ -1584,7 +1584,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/openapi.json`;
+        let urlPath = `/openapi.json`;
 
         const response = await this.request(
             {
@@ -1956,7 +1956,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/version`;
+        let urlPath = `/version`;
 
         const response = await this.request(
             {

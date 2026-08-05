@@ -554,7 +554,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/oauth2/auth/approve-for-user`;
+        let urlPath = `/oauth2/auth/approve-for-user`;
 
         const response = await this.request(
             {
@@ -615,7 +615,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/oauth2/auth`;
+        let urlPath = `/oauth2/auth`;
 
         const response = await this.request(
             {
@@ -905,11 +905,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         const consumes: runtime.Consume[] = [
             { contentType: "application/x-www-form-urlencoded" },
         ];
-        // @ts-expect-error: canConsumeForm may be unused
+        // @ts-ignore: canConsumeForm may be unused
         const canConsumeForm = runtime.canConsumeForm(consumes);
 
         let formParams: { append(param: string, value: any): any };
-        const useForm = false;
+        let useForm = false;
         if (useForm) {
             formParams = new FormData();
         } else {
@@ -927,7 +927,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             formParams.append("scope", requestParameters["scope"] as any);
         }
 
-        const urlPath = `/oauth2/device/auth`;
+        let urlPath = `/oauth2/device/auth`;
 
         const response = await this.request(
             {
@@ -967,7 +967,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/oauth2/device/verify`;
+        let urlPath = `/oauth2/device/verify`;
 
         const response = await this.request(
             {
@@ -1050,7 +1050,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/health`;
+        let urlPath = `/health`;
 
         const response = await this.request(
             {
@@ -1104,7 +1104,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/oauth2/auth/allowed-for-user`;
+        let urlPath = `/oauth2/auth/allowed-for-user`;
 
         const response = await this.request(
             {
@@ -1146,7 +1146,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/.well-known/jwks.json`;
+        let urlPath = `/.well-known/jwks.json`;
 
         const response = await this.request(
             {
@@ -1181,7 +1181,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/openapi.json`;
+        let urlPath = `/openapi.json`;
 
         const response = await this.request(
             {
@@ -1213,7 +1213,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/.well-known/openid-configuration`;
+        let urlPath = `/.well-known/openid-configuration`;
 
         const response = await this.request(
             {
@@ -1339,7 +1339,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/oauth2/register`;
+        let urlPath = `/oauth2/register`;
 
         const response = await this.request(
             {
@@ -1392,11 +1392,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         const consumes: runtime.Consume[] = [
             { contentType: "application/x-www-form-urlencoded" },
         ];
-        // @ts-expect-error: canConsumeForm may be unused
+        // @ts-ignore: canConsumeForm may be unused
         const canConsumeForm = runtime.canConsumeForm(consumes);
 
         let formParams: { append(param: string, value: any): any };
-        const useForm = false;
+        let useForm = false;
         if (useForm) {
             formParams = new FormData();
         } else {
@@ -1414,7 +1414,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             );
         }
 
-        const urlPath = `/oauth2/revoke`;
+        let urlPath = `/oauth2/revoke`;
 
         const response = await this.request(
             {
@@ -1448,7 +1448,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/oauth2/sessions/logout`;
+        let urlPath = `/oauth2/sessions/logout`;
 
         const response = await this.request(
             {
@@ -1484,11 +1484,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         const consumes: runtime.Consume[] = [
             { contentType: "application/x-www-form-urlencoded" },
         ];
-        // @ts-expect-error: canConsumeForm may be unused
+        // @ts-ignore: canConsumeForm may be unused
         const canConsumeForm = runtime.canConsumeForm(consumes);
 
         let formParams: { append(param: string, value: any): any };
-        const useForm = false;
+        let useForm = false;
         if (useForm) {
             formParams = new FormData();
         } else {
@@ -1596,7 +1596,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             );
         }
 
-        const urlPath = `/oauth2/token`;
+        let urlPath = `/oauth2/token`;
 
         const response = await this.request(
             {
@@ -1642,7 +1642,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        const urlPath = `/userinfo`;
+        let urlPath = `/userinfo`;
 
         const response = await this.request(
             {
@@ -1677,7 +1677,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        const urlPath = `/version`;
+        let urlPath = `/version`;
 
         const response = await this.request(
             {

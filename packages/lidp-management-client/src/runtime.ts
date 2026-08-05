@@ -102,7 +102,10 @@ export const DefaultConfig = new Configuration();
  * This is the base class for all generated API classes.
  */
 export class BaseAPI {
-    private static readonly jsonRegex = /^(:?application\/json|[^;/ \t]+\/[^;/ \t]+[+]json)[ \t]*(:?;.*)?$/i;
+    private static readonly jsonRegex = new RegExp(
+        "^(:?application\/json|[^;/ \t]+\/[^;/ \t]+[+]json)[ \t]*(:?;.*)?$",
+        "i",
+    );
     private middleware: Middleware[];
 
     constructor(protected configuration = DefaultConfig) {
@@ -239,7 +242,7 @@ export class BaseAPI {
                     })) || fetchParams;
             }
         }
-        let response: Response | undefined ;
+        let response: Response | undefined = undefined;
         try {
             response = await (this.configuration.fetchApi || fetch)(
                 fetchParams.url,
@@ -491,7 +494,9 @@ export interface ApiResponse<T> {
     value(): Promise<T>;
 }
 
-export type ResponseTransformer<T> = (json: any) => T
+export interface ResponseTransformer<T> {
+    (json: any): T;
+}
 
 export class JSONApiResponse<T> {
     constructor(

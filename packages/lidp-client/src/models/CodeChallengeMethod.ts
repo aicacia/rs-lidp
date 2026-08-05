@@ -25,7 +25,7 @@ export type CodeChallengeMethod =
 
 export function instanceOfCodeChallengeMethod(value: any): boolean {
     for (const key in CodeChallengeMethod) {
-        if (Object.hasOwn(CodeChallengeMethod, key)) {
+        if (Object.prototype.hasOwnProperty.call(CodeChallengeMethod, key)) {
             if (
                 CodeChallengeMethod[key as keyof typeof CodeChallengeMethod] ===
                 value
