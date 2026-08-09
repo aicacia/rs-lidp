@@ -20,38 +20,46 @@ use model::{
 use super::config::BootstrapConfig;
 use crate::{
     repo::{
-        ApplicationRepo, ClientRepo, KeyRepo, KeyService, PrivateKeyRepo, RepoResult, UserRepo,
+        ApplicationRepo, ClientRepo, KeyRepo, KeyService, PermissionRepo, PrivateKeyRepo,
+        RepoResult, RoleRepo, UserRepo,
     },
     util::generate_random_string,
 };
 
-pub struct BootstrapService<A, C, K, U> {
+pub struct BootstrapService<A, C, K, U, R, P> {
     application_repo: A,
     client_repo: C,
     user_repo: U,
+    role_repo: R,
+    permission_repo: P,
     key_service: Arc<KeyService<K>>,
     config: BootstrapConfig,
 }
 
-impl<A, C, K, U> BootstrapService<A, C, K, U>
+impl<A, C, K, U, R, P> BootstrapService<A, C, K, U, R, P>
 where
     A: ApplicationRepo,
     C: ClientRepo,
     K: KeyRepo,
     U: UserRepo,
+    R: RoleRepo,
+    P: PermissionRepo,
 {
     pub fn new(
         application_repo: A,
         client_repo: C,
         user_repo: U,
+        role_repo: R,
+        permission_repo: P,
         key_service: Arc<KeyService<K>>,
         config: BootstrapConfig,
-        _key_namespace: impl Into<String>,
     ) -> Self {
         Self {
             application_repo,
             client_repo,
             user_repo,
+            role_repo,
+            permission_repo,
             key_service,
             config,
         }
@@ -146,6 +154,8 @@ where
             .await?;
 
         let admin_user = self.ensure_admin_user().await?;
+        self.ensure_management_admin_access(admin_user.id, &lidp_management_application.uri)
+            .await?;
         let _admin_user_key = self
             .ensure_active_key(
                 EntityType::User,
@@ -298,6 +308,114 @@ where
 
         log::debug!("Created admin user with email: {}", self.config.admin_email);
         Ok(user)
+    }
+
+    async fn ensure_management_admin_access(
+        &self,
+        user_id: i64,
+        application_id: &str,
+    ) -> RepoResult<()> {
+        let role = self
+            .ensure_role(
+                application_id,
+                "admin",
+                Some("Administrative role with full management permissions"),
+            )
+            .await?;
+
+        let permission = self
+            .ensure_permission(
+                application_id,
+                "*",
+                Some("Catch-all permission for all management actions"),
+            )
+            .await?;
+
+        self.ensure_role_permission(application_id, role.id, permission.id)
+            .await?;
+        self.ensure_user_role(application_id, user_id, role.id)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn ensure_role(
+        &self,
+        application_id: &str,
+        role_name: &str,
+        description: Option<&str>,
+    ) -> RepoResult<model::model::Role> {
+        let roles = self.role_repo.list_roles(application_id, 0, 1_000).await?;
+        if let Some(role) = roles.into_iter().find(|role| role.name == role_name) {
+            return Ok(role);
+        }
+
+        self.role_repo
+            .create_role(application_id, role_name, description)
+            .await
+    }
+
+    async fn ensure_permission(
+        &self,
+        application_id: &str,
+        permission_name: &str,
+        description: Option<&str>,
+    ) -> RepoResult<model::model::Permission> {
+        let permissions = self
+            .permission_repo
+            .list_permissions(application_id, 0, 1_000)
+            .await?;
+        if let Some(permission) = permissions
+            .into_iter()
+            .find(|permission| permission.name == permission_name)
+        {
+            return Ok(permission);
+        }
+
+        self.permission_repo
+            .create_permission(application_id, permission_name, description)
+            .await
+    }
+
+    async fn ensure_role_permission(
+        &self,
+        application_id: &str,
+        role_id: i64,
+        permission_id: i64,
+    ) -> RepoResult<()> {
+        let role_permissions = self
+            .permission_repo
+            .list_role_permissions(application_id, role_id)
+            .await?;
+        if role_permissions
+            .iter()
+            .any(|permission| permission.id == permission_id)
+        {
+            return Ok(());
+        }
+
+        self.permission_repo
+            .add_permission_to_role(application_id, role_id, permission_id)
+            .await
+    }
+
+    async fn ensure_user_role(
+        &self,
+        application_id: &str,
+        user_id: i64,
+        role_id: i64,
+    ) -> RepoResult<()> {
+        let user_roles = self
+            .role_repo
+            .list_user_roles(application_id, user_id)
+            .await?;
+        if user_roles.iter().any(|role| role.id == role_id) {
+            return Ok(());
+        }
+
+        self.role_repo
+            .add_role_to_user(application_id, user_id, role_id)
+            .await
     }
 
     async fn ensure_active_key(

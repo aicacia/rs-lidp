@@ -8,8 +8,8 @@ use service::{
     oauth2::OAuth2Service,
     repo::{
         KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
-        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo,
-        LibSqlUserRepo, PrivateKeyKeyringRepo,
+        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
+        LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
     },
 };
 use std::{
@@ -71,9 +71,10 @@ pub async fn run() -> io::Result<()> {
             key_service.clone(),
             app_config.password.clone(),
         ),
+        LibSqlRoleRepo::new(database.clone()),
+        LibSqlPermissionRepo::new(database.clone()),
         key_service.clone(),
         app_config.bootstrap.clone(),
-        app_config.key_namespace.clone(),
     );
 
     bootstrap_service

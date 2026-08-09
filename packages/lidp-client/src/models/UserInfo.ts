@@ -81,6 +81,12 @@ export interface UserInfo {
     nickname?: string | null;
     /**
      *
+     * @type {Array<string>}
+     * @memberof UserInfo
+     */
+    permissions?: Array<string>;
+    /**
+     *
      * @type {string}
      * @memberof UserInfo
      */
@@ -170,6 +176,8 @@ export function UserInfoFromJSONTyped(
             json["middle_name"] == null ? undefined : json["middle_name"],
         name: json["name"] == null ? undefined : json["name"],
         nickname: json["nickname"] == null ? undefined : json["nickname"],
+        permissions:
+            json["permissions"] == null ? undefined : json["permissions"],
         phoneNumber:
             json["phone_number"] == null ? undefined : json["phone_number"],
         phoneNumberVerified:
@@ -212,6 +220,7 @@ export function UserInfoToJSONTyped(
         middle_name: value["middleName"],
         name: value["name"],
         nickname: value["nickname"],
+        permissions: value["permissions"],
         phone_number: value["phoneNumber"],
         phone_number_verified: value["phoneNumberVerified"],
         picture: value["picture"],

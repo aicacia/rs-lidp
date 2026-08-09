@@ -54,4 +54,11 @@ pub trait RoleRepo {
         application_id: &str,
         user_id: i64,
     ) -> impl Future<Output = RepoResult<Vec<Permission>>>;
+
+    fn has_user_client_permission(
+        &self,
+        user_id: i64,
+        application_id: &str,
+        permission_name: &str,
+    ) -> impl Future<Output = RepoResult<bool>>;
 }

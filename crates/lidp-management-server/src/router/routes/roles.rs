@@ -35,31 +35,6 @@ impl From<model::model::Role> for RoleResponse {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::ToSchema)]
-pub(crate) struct UserRoleResponse {
-    pub id: i64,
-    pub user_id: i64,
-    pub application_id: String,
-    pub role_id: i64,
-    pub role_name: String,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-
-impl From<model::model::UserRole> for UserRoleResponse {
-    fn from(role: model::model::UserRole) -> Self {
-        Self {
-            id: role.id,
-            user_id: role.user_id,
-            application_id: role.application_id,
-            role_id: role.role_id,
-            role_name: role.role_name,
-            created_at: role.created_at.timestamp(),
-            updated_at: role.updated_at.timestamp(),
-        }
-    }
-}
-
 #[derive(
     Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::IntoParams, utoipa::ToSchema,
 )]
@@ -195,7 +170,7 @@ pub(crate) async fn delete_role(
         ("application_id" = String, Path, description = "Application ID"),
         ("user_id" = i64, Path, description = "User ID")
     ),
-    responses((status = 200, description = "List user roles", body = [UserRoleResponse])),
+    responses((status = 200, description = "List user roles", body = [RoleResponse])),
     security(
         ("authorization" = [])
     )
@@ -204,7 +179,7 @@ pub(crate) async fn list_user_roles(
     State(state): State<RouterState>,
     Path((application_id, user_id)): Path<(String, i64)>,
     authorization: ManagementAuthorization,
-) -> Result<Json<Vec<UserRoleResponse>>, ErrorResponse> {
+) -> Result<Json<Vec<RoleResponse>>, ErrorResponse> {
     require_application_permission(
         state.role_repo.as_ref(),
         &authorization,
@@ -213,13 +188,13 @@ pub(crate) async fn list_user_roles(
     )
     .await?;
 
-    let assignments = state
+    let roles = state
         .role_repo
-        .list_user_roles_for_client(&application_id, user_id)
+        .list_user_roles(&application_id, user_id)
         .await
         .map_err(ErrorResponse::from)?;
 
-    Ok(Json(assignments.into_iter().map(Into::into).collect()))
+    Ok(Json(roles.into_iter().map(Into::into).collect()))
 }
 
 #[utoipa::path(
@@ -260,7 +235,7 @@ pub(crate) async fn assign_role_to_user(
 
     state
         .role_repo
-        .assign_role_to_user_for_client(&application_id, user_id, role_id)
+        .add_role_to_user(&application_id, user_id, role_id)
         .await
         .map_err(ErrorResponse::from)
 }
@@ -293,7 +268,7 @@ pub(crate) async fn revoke_role_from_user(
 
     state
         .role_repo
-        .revoke_role_from_user_for_client(&application_id, user_id, role_id)
+        .remove_role_from_user(&application_id, user_id, role_id)
         .await
         .map_err(ErrorResponse::from)
 }
@@ -354,8 +329,8 @@ mod tests {
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
             KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo,
-            LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
+            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
+            LibSqlRoleRepo, LibSqlUserRepo, PermissionRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
@@ -419,6 +394,22 @@ mod tests {
         row.get(0).expect("missing inserted user id")
     }
 
+    async fn grant_permission_to_role(
+        permission_repo: &LibSqlPermissionRepo,
+        application_id: &str,
+        role_id: i64,
+        permission_name: &str,
+    ) {
+        let permission = permission_repo
+            .create_permission(application_id, permission_name, None)
+            .await
+            .expect("create permission failed");
+        permission_repo
+            .add_permission_to_role(application_id, role_id, permission.id)
+            .await
+            .expect("assign permission to role failed");
+    }
+
     async fn test_router_with_role_setup(
         role_setup: RoleSetup,
         application_id: &str,
@@ -468,6 +459,7 @@ mod tests {
         ));
 
         let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "roles-route-caller").await;
@@ -488,12 +480,15 @@ mod tests {
                 .create_role(application_id, "admin", None)
                 .await
                 .expect("create admin role failed");
+            grant_permission_to_role(
+                permission_repo.as_ref(),
+                application_id,
+                admin_role.id,
+                ROLES_WRITE_PERMISSION,
+            )
+            .await;
             role_repo
-                .upsert_role_permission(admin_role.id, ROLES_WRITE_PERMISSION)
-                .await
-                .expect("grant admin permission failed");
-            role_repo
-                .assign_role_to_user_for_client(application_id, caller_user_id, admin_role.id)
+                .add_role_to_user(application_id, caller_user_id, admin_role.id)
                 .await
                 .expect("assign admin role failed");
         }

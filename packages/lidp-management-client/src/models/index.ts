@@ -24,5 +24,4 @@ export * from "./TokenEndpointAuthMethod.js";
 export * from "./UpdateUserRequest.js";
 export * from "./UserConsentResponse.js";
 export * from "./UserInfo.js";
-export * from "./UserRoleResponse.js";
 export * from "./VersionResponse.js";

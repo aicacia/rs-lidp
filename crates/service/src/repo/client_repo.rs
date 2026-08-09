@@ -8,7 +8,11 @@ pub trait ClientRepo {
         client_id: &str,
     ) -> impl Future<Output = RepoResult<Option<Client>>>;
 
-    fn list_clients(&self, offset: u32, limit: u32) -> impl Future<Output = RepoResult<Vec<Client>>>;
+    fn list_clients(
+        &self,
+        offset: u32,
+        limit: u32,
+    ) -> impl Future<Output = RepoResult<Vec<Client>>>;
 
     fn create_client(&self, client: ClientRegistration)
     -> impl Future<Output = RepoResult<Client>>;

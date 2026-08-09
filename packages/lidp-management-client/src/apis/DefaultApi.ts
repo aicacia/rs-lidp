@@ -24,7 +24,6 @@ import type {
     UpdateUserRequest,
     UserConsentResponse,
     UserInfo,
-    UserRoleResponse,
     VersionResponse,
 } from "../models/index.js";
 import {
@@ -48,8 +47,6 @@ import {
     UserConsentResponseToJSON,
     UserInfoFromJSON,
     UserInfoToJSON,
-    UserRoleResponseFromJSON,
-    UserRoleResponseToJSON,
     VersionResponseFromJSON,
     VersionResponseToJSON,
 } from "../models/index.js";
@@ -441,14 +438,14 @@ export interface DefaultApiInterface {
     listUserRolesRaw(
         requestParameters: ListUserRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
-    ): Promise<runtime.ApiResponse<Array<UserRoleResponse>>>;
+    ): Promise<runtime.ApiResponse<Array<RoleResponse>>>;
 
     /**
      */
     listUserRoles(
         requestParameters: ListUserRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
-    ): Promise<Array<UserRoleResponse>>;
+    ): Promise<Array<RoleResponse>>;
 
     /**
      *
@@ -1505,7 +1502,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
     async listUserRolesRaw(
         requestParameters: ListUserRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
-    ): Promise<runtime.ApiResponse<Array<UserRoleResponse>>> {
+    ): Promise<runtime.ApiResponse<Array<RoleResponse>>> {
         if (requestParameters["applicationId"] == null) {
             throw new runtime.RequiredError(
                 "applicationId",
@@ -1554,7 +1551,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         );
 
         return new runtime.JSONApiResponse(response, (jsonValue) =>
-            jsonValue.map(UserRoleResponseFromJSON),
+            jsonValue.map(RoleResponseFromJSON),
         );
     }
 
@@ -1563,7 +1560,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
     async listUserRoles(
         requestParameters: ListUserRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
-    ): Promise<Array<UserRoleResponse>> {
+    ): Promise<Array<RoleResponse>> {
         const response = await this.listUserRolesRaw(
             requestParameters,
             initOverrides,

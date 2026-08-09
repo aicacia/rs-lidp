@@ -128,8 +128,8 @@ mod tests {
         repo::{
             ApplicationRepo, ClientRepo, KeyRepo, KeyService, LibSqlApplicationRepo,
             LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
-            LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo, LibSqlUserRepo,
-            PrivateKeyKeyringRepo, RoleRepo,
+            LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo, LibSqlRoleRepo, LibSqlUserRepo,
+            PermissionRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
@@ -263,6 +263,22 @@ mod tests {
         (client_id, key.id)
     }
 
+    async fn grant_permission_to_role(
+        permission_repo: &LibSqlPermissionRepo,
+        application_id: &str,
+        role_id: i64,
+        permission_name: &str,
+    ) {
+        let permission = permission_repo
+            .create_permission(application_id, permission_name, None)
+            .await
+            .expect("create permission failed");
+        permission_repo
+            .add_permission_to_role(application_id, role_id, permission.id)
+            .await
+            .expect("assign permission to role failed");
+    }
+
     async fn test_router_with_role_setup(role_setup: RoleSetup) -> (Router, String, String, u32) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -312,12 +328,17 @@ mod tests {
         ));
 
         let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "keys-route-caller").await;
-        let (client_id, key_id) =
-            insert_test_client(oauth2_service.as_ref(), &client_repo, &key_repo, application_id)
-                .await;
+        let (client_id, key_id) = insert_test_client(
+            oauth2_service.as_ref(),
+            &client_repo,
+            &key_repo,
+            application_id,
+        )
+        .await;
         let caller_key = key_repo
             .create_key(
                 None,
@@ -335,16 +356,19 @@ mod tests {
                 .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                 .await
                 .expect("create admin role failed");
+            grant_permission_to_role(
+                permission_repo.as_ref(),
+                MANAGEMENT_APPLICATION_ID,
+                admin_role.id,
+                KEYS_READ_PERMISSION,
+            )
+            .await;
             role_repo
-                .upsert_role_permission(admin_role.id, KEYS_READ_PERMISSION)
-                .await
-                .expect("grant admin permission failed");
-            role_repo
-                .assign_role_to_user_for_client(MANAGEMENT_APPLICATION_ID, caller_user_id, admin_role.id)
+                .add_role_to_user(MANAGEMENT_APPLICATION_ID, caller_user_id, admin_role.id)
                 .await
                 .expect("assign admin role failed");
             role_repo
-                .assign_role_to_user_for_client(&client_id, caller_user_id, admin_role.id)
+                .add_role_to_user(&client_id, caller_user_id, admin_role.id)
                 .await
                 .expect("assign admin client role failed");
         }
@@ -357,7 +381,11 @@ mod tests {
         (router, token, client_id, key_id)
     }
 
-    async fn get_client_keys(router: Router, token: &str, client_id: &str) -> (StatusCode, Vec<u8>) {
+    async fn get_client_keys(
+        router: Router,
+        token: &str,
+        client_id: &str,
+    ) -> (StatusCode, Vec<u8>) {
         let request = Request::builder()
             .method("GET")
             .uri(format!("/clients/{client_id}/keys"))

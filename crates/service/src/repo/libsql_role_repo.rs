@@ -15,6 +15,30 @@ impl LibSqlRoleRepo {
     }
 }
 
+fn permission_matches(granted: &str, required: &str) -> bool {
+    if granted == "*" || granted == required {
+        return true;
+    }
+
+    if let Some(prefix) = granted.strip_suffix('*') {
+        if required.starts_with(prefix) {
+            return true;
+        }
+
+        if let Some(colon_prefix) = prefix.strip_suffix(':') {
+            let dot_prefix = format!("{colon_prefix}.");
+            return required.starts_with(&dot_prefix);
+        }
+
+        if let Some(dot_prefix) = prefix.strip_suffix('.') {
+            let colon_prefix = format!("{dot_prefix}:");
+            return required.starts_with(&colon_prefix);
+        }
+    }
+
+    false
+}
+
 impl RoleRepo for LibSqlRoleRepo {
     async fn list_roles(
         &self,
@@ -204,6 +228,7 @@ impl RoleRepo for LibSqlRoleRepo {
             INNER JOIN role_permissions rp ON p.id = rp.permission_id
             INNER JOIN application_user_roles aur ON rp.role_id = aur.role_id
             WHERE aur.application_id = ? AND aur.user_id = ?
+                AND p.application_id = aur.application_id
             ORDER BY p.name ASC
         "#;
 
@@ -217,5 +242,34 @@ impl RoleRepo for LibSqlRoleRepo {
         }
 
         Ok(permissions)
+    }
+
+    async fn has_user_client_permission(
+        &self,
+        user_id: i64,
+        application_id: &str,
+        permission_name: &str,
+    ) -> RepoResult<bool> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT p.name
+            FROM application_user_roles aur
+            INNER JOIN role_permissions rp ON aur.role_id = rp.role_id
+            INNER JOIN permissions p ON rp.permission_id = p.id
+            WHERE aur.user_id = ? AND aur.application_id = ?
+        "#;
+
+        let mut rows = connection
+            .query(query, libsql::params![user_id, application_id])
+            .await?;
+
+        while let Some(row) = rows.next().await? {
+            let granted_permission = row.get::<String>(0)?;
+            if permission_matches(&granted_permission, permission_name) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 }

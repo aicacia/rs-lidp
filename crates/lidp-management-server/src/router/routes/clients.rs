@@ -202,7 +202,8 @@ mod tests {
         repo::{
             ApplicationRepo, KeyRepo, KeyService, LibSqlApplicationRepo, LibSqlClientRepo,
             LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo,
-            LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
+            LibSqlPermissionRepo, LibSqlRoleRepo, LibSqlUserRepo, PermissionRepo,
+            PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
@@ -285,6 +286,22 @@ mod tests {
         client.client_id.expect("registered client id missing")
     }
 
+    async fn grant_permission_to_role(
+        permission_repo: &LibSqlPermissionRepo,
+        application_id: &str,
+        role_id: i64,
+        permission_name: &str,
+    ) {
+        let permission = permission_repo
+            .create_permission(application_id, permission_name, None)
+            .await
+            .expect("create permission failed");
+        permission_repo
+            .add_permission_to_role(application_id, role_id, permission.id)
+            .await
+            .expect("assign permission to role failed");
+    }
+
     async fn insert_test_application(database: &Arc<libsql::Database>) -> i64 {
         LibSqlApplicationRepo::new(database.clone())
             .create_application(
@@ -345,6 +362,7 @@ mod tests {
         ));
 
         let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "client-route-test-user").await;
@@ -368,16 +386,15 @@ mod tests {
                     .create_role(MANAGEMENT_APPLICATION_ID, "viewer", None)
                     .await
                     .expect("create viewer role failed");
+                grant_permission_to_role(
+                    permission_repo.as_ref(),
+                    MANAGEMENT_APPLICATION_ID,
+                    viewer_role.id,
+                    "users.write",
+                )
+                .await;
                 role_repo
-                    .upsert_role_permission(viewer_role.id, "users.write")
-                    .await
-                    .expect("grant viewer permission failed");
-                role_repo
-                    .assign_role_to_user_for_client(
-                        MANAGEMENT_APPLICATION_ID,
-                        caller_user_id,
-                        viewer_role.id,
-                    )
+                    .add_role_to_user(MANAGEMENT_APPLICATION_ID, caller_user_id, viewer_role.id)
                     .await
                     .expect("assign viewer role failed");
             }
@@ -386,24 +403,19 @@ mod tests {
                     .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                     .await
                     .expect("create admin role failed");
+                grant_permission_to_role(
+                    permission_repo.as_ref(),
+                    MANAGEMENT_APPLICATION_ID,
+                    admin_role.id,
+                    "clients.write",
+                )
+                .await;
                 role_repo
-                    .upsert_role_permission(admin_role.id, "clients.write")
-                    .await
-                    .expect("grant admin permission failed");
-                role_repo
-                    .assign_role_to_user_for_client(
-                        MANAGEMENT_APPLICATION_ID,
-                        caller_user_id,
-                        admin_role.id,
-                    )
+                    .add_role_to_user(MANAGEMENT_APPLICATION_ID, caller_user_id, admin_role.id)
                     .await
                     .expect("assign admin role failed");
                 role_repo
-                    .assign_role_to_user_for_client(
-                        &target_client_id,
-                        caller_user_id,
-                        admin_role.id,
-                    )
+                    .add_role_to_user(&target_client_id, caller_user_id, admin_role.id)
                     .await
                     .expect("assign admin client role failed");
             }

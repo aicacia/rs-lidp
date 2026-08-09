@@ -249,8 +249,8 @@ mod tests {
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
             KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo,
-            LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
+            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
+            LibSqlRoleRepo, LibSqlUserRepo, PermissionRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
@@ -315,6 +315,22 @@ mod tests {
         row.get(0).expect("missing inserted user id")
     }
 
+    async fn grant_permission_to_role(
+        permission_repo: &LibSqlPermissionRepo,
+        application_id: &str,
+        role_id: i64,
+        permission_name: &str,
+    ) {
+        let permission = permission_repo
+            .create_permission(application_id, permission_name, None)
+            .await
+            .expect("create permission failed");
+        permission_repo
+            .add_permission_to_role(application_id, role_id, permission.id)
+            .await
+            .expect("assign permission to role failed");
+    }
+
     async fn test_router_with_role_setup(role_setup: RoleSetup) -> (Router, String, i64) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -361,6 +377,7 @@ mod tests {
         ));
 
         let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "user-route-caller").await;
@@ -385,16 +402,15 @@ mod tests {
                     .create_role(MANAGEMENT_APPLICATION_ID, "viewer", None)
                     .await
                     .expect("create viewer role failed");
+                grant_permission_to_role(
+                    permission_repo.as_ref(),
+                    MANAGEMENT_APPLICATION_ID,
+                    viewer_role.id,
+                    "clients.write",
+                )
+                .await;
                 role_repo
-                    .upsert_role_permission(viewer_role.id, "clients.write")
-                    .await
-                    .expect("grant viewer permission failed");
-                role_repo
-                    .assign_role_to_user_for_client(
-                        MANAGEMENT_APPLICATION_ID,
-                        caller_user_id,
-                        viewer_role.id,
-                    )
+                    .add_role_to_user(MANAGEMENT_APPLICATION_ID, caller_user_id, viewer_role.id)
                     .await
                     .expect("assign viewer role failed");
             }
@@ -403,16 +419,15 @@ mod tests {
                     .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                     .await
                     .expect("create admin role failed");
+                grant_permission_to_role(
+                    permission_repo.as_ref(),
+                    MANAGEMENT_APPLICATION_ID,
+                    admin_role.id,
+                    "users.write",
+                )
+                .await;
                 role_repo
-                    .upsert_role_permission(admin_role.id, "users.write")
-                    .await
-                    .expect("grant admin permission failed");
-                role_repo
-                    .assign_role_to_user_for_client(
-                        MANAGEMENT_APPLICATION_ID,
-                        caller_user_id,
-                        admin_role.id,
-                    )
+                    .add_role_to_user(MANAGEMENT_APPLICATION_ID, caller_user_id, admin_role.id)
                     .await
                     .expect("assign admin role failed");
             }

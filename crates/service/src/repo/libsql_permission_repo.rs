@@ -133,13 +133,18 @@ impl PermissionRepo for LibSqlPermissionRepo {
     ) -> RepoResult<()> {
         let connection = self.database.connect()?;
         let query = r#"
-            INSERT INTO role_permissions (application_id, role_id, permission_id)
-            VALUES (?, ?, ?);
+            INSERT INTO role_permissions (role_id, permission_id)
+            SELECT r.id, p.id
+            FROM roles r
+            INNER JOIN permissions p ON p.id = ?
+            WHERE r.id = ?
+                AND r.application_id = ?
+                AND p.application_id = ?;
         "#;
         let result = connection
             .execute(
                 query,
-                libsql::params![application_id, role_id, permission_id],
+                libsql::params![permission_id, role_id, application_id, application_id],
             )
             .await?;
         if result == 0 {
@@ -158,12 +163,21 @@ impl PermissionRepo for LibSqlPermissionRepo {
         let connection = self.database.connect()?;
         let query = r#"
             DELETE FROM role_permissions
-            WHERE application_id = ? AND role_id = ? AND permission_id = ?
+            WHERE role_id = ?
+                AND permission_id = ?
+                AND EXISTS (
+                    SELECT 1
+                    FROM roles r
+                    INNER JOIN permissions p ON p.id = role_permissions.permission_id
+                    WHERE r.id = role_permissions.role_id
+                        AND r.application_id = ?
+                        AND p.application_id = ?
+                )
         "#;
         let result = connection
             .execute(
                 query,
-                libsql::params![application_id, role_id, permission_id],
+                libsql::params![role_id, permission_id, application_id, application_id],
             )
             .await?;
         if result == 0 {
@@ -189,11 +203,17 @@ impl PermissionRepo for LibSqlPermissionRepo {
                 p.updated_at
             FROM permissions p
             INNER JOIN role_permissions rp ON p.id = rp.permission_id
-            WHERE rp.application_id = ? AND rp.role_id = ?
+            INNER JOIN roles r ON r.id = rp.role_id
+            WHERE rp.role_id = ?
+                AND r.application_id = ?
+                AND p.application_id = ?
             ORDER BY p.name ASC
         "#;
         let mut rows = connection
-            .query(query, libsql::params![application_id, role_id])
+            .query(
+                query,
+                libsql::params![role_id, application_id, application_id],
+            )
             .await?;
         let mut permissions = Vec::new();
         while let Some(row) = rows.next().await? {
