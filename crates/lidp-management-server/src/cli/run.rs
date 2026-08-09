@@ -7,9 +7,9 @@ use service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{
-        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlManagementRoleRepo,
-        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
-        PrivateKeyKeyringRepo,
+        KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
+        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo,
+        LibSqlUserRepo, PrivateKeyKeyringRepo,
     },
 };
 use std::{
@@ -64,6 +64,7 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let bootstrap_service = BootstrapService::new(
+        LibSqlApplicationRepo::new(database.clone()),
         LibSqlClientRepo::new(database.clone(), key_service.clone()),
         LibSqlUserRepo::new(
             database.clone(),
@@ -94,7 +95,7 @@ pub async fn run() -> io::Result<()> {
         app_config.key_namespace.clone(),
     ));
 
-    let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
+    let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
 
     let management_router_state = crate::RouterState::new(
         &app_config.ui_public_url,

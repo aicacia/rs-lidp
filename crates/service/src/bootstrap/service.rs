@@ -14,29 +14,34 @@ use model::{
         ClientProfile, ClientRegistration, ClientType, EntityType, GrantType, ResponseType,
         TokenEndpointAuthMethod,
     },
-    model::{Client, Key, User},
+    model::{Application, Client, Key, User},
 };
 
 use super::config::BootstrapConfig;
 use crate::{
-    repo::{ClientRepo, KeyRepo, KeyService, PrivateKeyRepo, RepoResult, UserRepo},
+    repo::{
+        ApplicationRepo, ClientRepo, KeyRepo, KeyService, PrivateKeyRepo, RepoResult, UserRepo,
+    },
     util::generate_random_string,
 };
 
-pub struct BootstrapService<C, K, U> {
+pub struct BootstrapService<A, C, K, U> {
+    application_repo: A,
     client_repo: C,
     user_repo: U,
     key_service: Arc<KeyService<K>>,
     config: BootstrapConfig,
 }
 
-impl<C, K, U> BootstrapService<C, K, U>
+impl<A, C, K, U> BootstrapService<A, C, K, U>
 where
+    A: ApplicationRepo,
     C: ClientRepo,
     K: KeyRepo,
     U: UserRepo,
 {
     pub fn new(
+        application_repo: A,
         client_repo: C,
         user_repo: U,
         key_service: Arc<KeyService<K>>,
@@ -44,6 +49,7 @@ where
         _key_namespace: impl Into<String>,
     ) -> Self {
         Self {
+            application_repo,
             client_repo,
             user_repo,
             key_service,
@@ -52,10 +58,15 @@ where
     }
 
     pub async fn ensure_system_baseline(&self) -> RepoResult<()> {
+        let lidp_application = self
+            .ensure_application("Local IdP".to_string(), "lidp".to_string())
+            .await?;
+
         let lidp_web_client = self
             .ensure_client(
+                lidp_application.id,
                 "lidp-web".to_string(),
-                "Local IdP".to_string(),
+                "Local IdP Web".to_string(),
                 self.config.lidp_url.clone(),
                 ClientProfile::Web,
             )
@@ -64,7 +75,7 @@ where
             .ensure_active_key(
                 EntityType::Client,
                 lidp_web_client.id,
-                "Local IdP",
+                "Local IdP Web",
                 lidp_web_client.client_secret.as_str(),
                 true,
             )
@@ -72,8 +83,9 @@ where
 
         let lidp_desktop_client = self
             .ensure_client(
+                lidp_application.id,
                 "lidp-desktop".to_string(),
-                "Local IdP".to_string(),
+                "Local IdP Desktop".to_string(),
                 "lidp://app".to_string(),
                 ClientProfile::Native,
             )
@@ -82,16 +94,24 @@ where
             .ensure_active_key(
                 EntityType::Client,
                 lidp_desktop_client.id,
-                "Local IdP",
+                "Local IdP Desktop",
                 lidp_desktop_client.client_secret.as_str(),
                 true,
             )
             .await?;
 
+        let lidp_management_application = self
+            .ensure_application(
+                "Local IdP Management".to_string(),
+                "lidp-management".to_string(),
+            )
+            .await?;
+
         let lidp_management_web_client = self
             .ensure_client(
+                lidp_management_application.id,
                 "lidp-management-web".to_string(),
-                "Local IdP Management".to_string(),
+                "Local IdP Management Web".to_string(),
                 self.config.lidp_management_url.clone(),
                 ClientProfile::Web,
             )
@@ -100,7 +120,7 @@ where
             .ensure_active_key(
                 EntityType::Client,
                 lidp_management_web_client.id,
-                "Local IdP Management",
+                "Local IdP Management Web",
                 lidp_management_web_client.client_secret.as_str(),
                 true,
             )
@@ -108,8 +128,9 @@ where
 
         let lidp_management_desktop_client = self
             .ensure_client(
+                lidp_management_application.id,
                 "lidp-management-desktop".to_string(),
-                "Local IdP Management".to_string(),
+                "Local IdP Management Desktop".to_string(),
                 "lidp-management://app".to_string(),
                 ClientProfile::Native,
             )
@@ -118,7 +139,7 @@ where
             .ensure_active_key(
                 EntityType::Client,
                 lidp_management_desktop_client.id,
-                "Local IdP Management",
+                "Local IdP Management Desktop",
                 lidp_management_desktop_client.client_secret.as_str(),
                 true,
             )
@@ -138,8 +159,24 @@ where
         Ok(())
     }
 
+    async fn ensure_application(&self, name: String, uri: String) -> RepoResult<Application> {
+        if let Some(application) = self.application_repo.find_by_uri(&uri).await? {
+            log::debug!("Found existing application with name: {}", uri);
+            return Ok(application);
+        }
+
+        let application = self
+            .application_repo
+            .create_application(name, uri, None)
+            .await?;
+
+        log::debug!("Created application with name: {}", application.name);
+        Ok(application)
+    }
+
     async fn ensure_client(
         &self,
+        application_id: i64,
         client_id: String,
         client_name: String,
         client_uri: String,
@@ -161,6 +198,11 @@ where
 
         if let Some(mut client) = existing {
             let mut changed = false;
+
+            if client.application_id != application_id {
+                client.application_id = application_id;
+                changed = true;
+            }
 
             if client.client_name != client_name {
                 client.client_name = client_name.to_string();
@@ -197,6 +239,7 @@ where
             }
         } else {
             let client = ClientRegistration {
+                application_id,
                 client_id: Some(client_id),
                 client_secret: Some(generate_random_string::<32>()),
                 client_id_issued_at: None,

@@ -68,6 +68,12 @@ export interface ClientRegistration {
      */
     allowedScopes?: Array<string>;
     /**
+     * Unique identifier for the application (assigned by the authorization server).
+     * @type {number}
+     * @memberof ClientRegistration
+     */
+    applicationId: number;
+    /**
      * Unique identifier for the client application (assigned by the authorization server).
      * @type {string}
      * @memberof ClientRegistration
@@ -184,6 +190,8 @@ export interface ClientRegistration {
 export function instanceOfClientRegistration(
     value: object,
 ): value is ClientRegistration {
+    if (!("applicationId" in value) || value["applicationId"] === undefined)
+        return false;
     if (!("clientName" in value) || value["clientName"] === undefined)
         return false;
     if (!("profile" in value) || value["profile"] === undefined) return false;
@@ -215,6 +223,7 @@ export function ClientRegistrationFromJSONTyped(
                   ),
         allowedScopes:
             json["allowed_scopes"] == null ? undefined : json["allowed_scopes"],
+        applicationId: json["application_id"],
         clientId: json["client_id"] == null ? undefined : json["client_id"],
         clientIdIssuedAt:
             json["client_id_issued_at"] == null
@@ -281,6 +290,7 @@ export function ClientRegistrationToJSONTyped(
                       GrantTypeToJSON,
                   ),
         allowed_scopes: value["allowedScopes"],
+        application_id: value["applicationId"],
         client_id: value["clientId"],
         client_id_issued_at: value["clientIdIssuedAt"],
         client_name: value["clientName"],

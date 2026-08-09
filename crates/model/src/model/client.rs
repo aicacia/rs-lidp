@@ -11,6 +11,8 @@ use crate::contract::{
 pub struct Client {
     pub id: i64,
 
+    pub application_id: i64,
+
     pub client_id: String,
     pub client_secret: String,
 
@@ -66,6 +68,7 @@ pub struct Client {
 impl From<Client> for ClientRegistration {
     fn from(val: Client) -> Self {
         ClientRegistration {
+            application_id: val.application_id,
             client_id: Some(val.client_id),
             client_secret: Some(val.client_secret),
             client_id_issued_at: val.client_id_issued_at.map(|dt| dt.timestamp()),

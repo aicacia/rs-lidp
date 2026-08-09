@@ -1,7 +1,19 @@
-DROP INDEX IF EXISTS "idx_management_user_roles_role_id";
-DROP INDEX IF EXISTS "idx_management_user_roles_user_id";
-DROP TABLE IF EXISTS "management_user_roles";
-DROP TABLE IF EXISTS "management_roles";
+DROP INDEX IF EXISTS "idx_application_user_roles_role_id";
+DROP INDEX IF EXISTS "idx_application_user_roles_application_id";
+DROP INDEX IF EXISTS "idx_application_user_roles_user_id";
+DROP TABLE IF EXISTS "application_user_roles";
+
+DROP INDEX IF EXISTS "idx_role_permissions_permission_id";
+DROP INDEX IF EXISTS "idx_role_permissions_role_id";
+DROP TABLE IF EXISTS "role_permissions";
+
+DROP INDEX IF EXISTS "idx_permissions_application_name";
+DROP INDEX IF EXISTS "idx_permissions_application_id";
+DROP TABLE IF EXISTS "permissions";
+
+DROP INDEX IF EXISTS "idx_roles_application_name";
+DROP INDEX IF EXISTS "idx_roles_application_id";
+DROP TABLE IF EXISTS "roles";
 
 DROP INDEX IF EXISTS "idx_oauth2_user_consents_user_client";
 DROP TABLE IF EXISTS "oauth2_user_consents";
@@ -16,8 +28,13 @@ DROP INDEX IF EXISTS "idx_keys_parent_id";
 DROP INDEX IF EXISTS "idx_keys_derivation_path";
 DROP TABLE IF EXISTS "keys";
 
+DROP INDEX IF EXISTS "idx_clients_application_id";
 DROP INDEX IF EXISTS "idx_clients_client_name";
 DROP TABLE IF EXISTS "clients";
+
+DROP INDEX IF EXISTS "idx_applications_uri";
+DROP INDEX IF EXISTS "idx_applications_name";
+DROP TABLE IF EXISTS "applications";
 
 DROP INDEX IF EXISTS "idx_user_passwords_user_id";
 DROP TABLE IF EXISTS "user_passwords";

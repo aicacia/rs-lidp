@@ -104,6 +104,7 @@ mod tests {
     fn sample_client() -> Client {
         Client {
             id: 1,
+            application_id: 1,
             client_id: "client-1".to_string(),
             client_secret: "secret".to_string(),
             client_id_issued_at: None,

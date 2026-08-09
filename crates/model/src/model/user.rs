@@ -49,6 +49,7 @@ impl From<User> for UserInfo {
     fn from(val: User) -> Self {
         UserInfo {
             sub: val.id.to_string(),
+            permissions: Vec::new(),
             name: Some(val.name),
             given_name: val.given_name,
             family_name: val.family_name,

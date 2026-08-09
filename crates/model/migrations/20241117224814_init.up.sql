@@ -88,8 +88,28 @@ CREATE TABLE `user_passwords` (
 CREATE INDEX `idx_user_passwords_user_id`
     ON `user_passwords`(`user_id`);
 
+CREATE TABLE `applications` (
+    `id` INTEGER PRIMARY KEY,
+
+    `name` TEXT NOT NULL,
+    `uri` TEXT NOT NULL,
+    `description` TEXT,
+
+    `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+    `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX `idx_applications_name`
+    ON `applications`(`name`);
+
+CREATE UNIQUE INDEX `idx_applications_uri`
+    ON `applications`(`uri`);
+
 CREATE TABLE `clients` (
     `id` INTEGER PRIMARY KEY,
+
+    `application_id` INTEGER NOT NULL
+        REFERENCES `applications`(`id`) ON DELETE CASCADE,
 
     `client_id` TEXT NOT NULL UNIQUE,
     `client_secret` TEXT NOT NULL,
@@ -126,6 +146,9 @@ CREATE TABLE `clients` (
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
 );
+
+CREATE INDEX `idx_clients_application_id`
+    ON `clients`(`application_id`);
 
 CREATE INDEX `idx_clients_client_name`
     ON `clients`(`client_name`);
@@ -214,8 +237,10 @@ CREATE TABLE `oauth2_user_consents` (
 CREATE INDEX `idx_oauth2_user_consents_user_client`
     ON `oauth2_user_consents`(`user_id`, `client_id`);
 
-CREATE TABLE management_roles (
+CREATE TABLE roles (
     `id` INTEGER PRIMARY KEY,
+
+    `application_id` TEXT NOT NULL,
 
     `name` TEXT NOT NULL UNIQUE,
     `description` TEXT,
@@ -224,23 +249,73 @@ CREATE TABLE management_roles (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
-CREATE TABLE management_user_roles (
+CREATE INDEX `idx_roles_application_id`
+    ON `roles`(`application_id`);
+
+CREATE UNIQUE INDEX `idx_roles_application_name`
+    ON `roles`(`application_id`, `name`);
+
+CREATE TABLE permissions (
+    `id` INTEGER PRIMARY KEY,
+
+    `application_id` TEXT NOT NULL,
+
+    `name` TEXT NOT NULL UNIQUE,
+    `description` TEXT,
+
+    `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+    `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX `idx_permissions_application_id`
+    ON `roles`(`application_id`);
+
+CREATE UNIQUE INDEX `idx_permissions_application_name`
+    ON `roles`(`application_id`, `name`);
+
+CREATE TABLE role_permissions (
+    `id` INTEGER PRIMARY KEY,
+
+    `role_id` INTEGER NOT NULL
+        REFERENCES `roles`(`id`) ON DELETE CASCADE,
+
+    `permission_id` INTEGER NOT NULL
+        REFERENCES `permissions`(`id`) ON DELETE CASCADE,
+
+    `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+    `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
+
+    UNIQUE(`role_id`, `permission_id`)
+);
+
+CREATE INDEX `idx_role_permissions_role_id`
+    ON `role_permissions`(`role_id`);
+
+CREATE INDEX `idx_role_permissions_permission_id`
+    ON `role_permissions`(`permission_id`);
+
+CREATE TABLE application_user_roles (
     `id` INTEGER PRIMARY KEY,
 
     `user_id` INTEGER NOT NULL
         REFERENCES `users`(`id`) ON DELETE CASCADE,
 
+    `application_id` TEXT NOT NULL,
+
     `role_id` INTEGER NOT NULL
-        REFERENCES `management_roles`(`id`) ON DELETE CASCADE,
+        REFERENCES `roles`(`id`) ON DELETE CASCADE,
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
-    UNIQUE(`user_id`, `role_id`)
+    UNIQUE(`user_id`, `application_id`, `role_id`)
 );
 
-CREATE INDEX `idx_management_user_roles_user_id`
-    ON `management_user_roles`(`user_id`);
+CREATE INDEX `idx_application_user_roles_user_id`
+    ON `application_user_roles`(`user_id`);
 
-CREATE INDEX `idx_management_user_roles_role_id`
-    ON `management_user_roles`(`role_id`);
+CREATE INDEX `idx_application_user_roles_application_id`
+    ON `application_user_roles`(`application_id`);
+
+CREATE INDEX `idx_application_user_roles_role_id`
+    ON `application_user_roles`(`role_id`);

@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 pub struct UserInfo {
     pub sub: String,
 
+    #[serde(default)]
+    pub permissions: Vec<String>,
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 

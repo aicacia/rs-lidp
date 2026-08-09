@@ -18,6 +18,9 @@ use super::{ClientProfile, ClientType, GrantType, ResponseType, TokenEndpointAut
     tsify(into_wasm_abi, from_wasm_abi)
 )]
 pub struct ClientRegistration {
+    /// Unique identifier for the application (assigned by the authorization server).
+    pub application_id: i64,
+
     /// Unique identifier for the client application (assigned by the authorization server).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_id: Option<String>,

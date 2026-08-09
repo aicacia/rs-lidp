@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
-use super::roles::require_rbac_admin;
+use super::roles::{MANAGEMENT_APPLICATION_ID, require_client_permission};
 
-const CLIENTS_READ_SCOPES: &[&str] = &["lidp:admin", "lidp:clients:read"];
-const CLIENTS_WRITE_SCOPES: &[&str] = &["lidp:admin", "lidp:clients:write"];
+const CLIENTS_READ_PERMISSION: &str = "clients.read";
+const CLIENTS_WRITE_PERMISSION: &str = "clients.write";
 
 #[derive(
     Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::IntoParams, utoipa::ToSchema,
@@ -36,7 +36,13 @@ pub(crate) async fn list_clients(
     Query(query): Query<ListClientsQuery>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<ClientRegistration>>, ErrorResponse> {
-    authorization.require_any_scope(CLIENTS_READ_SCOPES)?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        CLIENTS_READ_PERMISSION,
+    )
+    .await?;
 
     let mut clients = state
         .oauth2_service
@@ -61,8 +67,13 @@ pub(crate) async fn create_client(
     authorization: ManagementAuthorization,
     Json(body): Json<ClientRegistration>,
 ) -> Result<Json<ClientRegistration>, ErrorResponse> {
-    authorization.require_any_scope(CLIENTS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        CLIENTS_WRITE_PERMISSION,
+    )
+    .await?;
 
     let response = state.oauth2_service.register_client(body).await?;
     Ok(Json(response))
@@ -84,7 +95,13 @@ pub(crate) async fn get_client(
     Path(client_id): Path<String>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<ClientRegistration>, ErrorResponse> {
-    authorization.require_any_scope(CLIENTS_READ_SCOPES)?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        &client_id,
+        CLIENTS_READ_PERMISSION,
+    )
+    .await?;
 
     let mut response = state.oauth2_service.get_client(&client_id).await?;
     sanitize_client_secret(&mut response);
@@ -109,8 +126,13 @@ pub(crate) async fn update_client(
     authorization: ManagementAuthorization,
     Json(body): Json<ClientRegistration>,
 ) -> Result<Json<ClientRegistration>, ErrorResponse> {
-    authorization.require_any_scope(CLIENTS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        &client_id,
+        CLIENTS_WRITE_PERMISSION,
+    )
+    .await?;
 
     let mut response = state.oauth2_service.update_client(&client_id, body).await?;
     sanitize_client_secret(&mut response);
@@ -133,8 +155,13 @@ pub(crate) async fn delete_client(
     Path(client_id): Path<String>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
-    authorization.require_any_scope(CLIENTS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        &client_id,
+        CLIENTS_WRITE_PERMISSION,
+    )
+    .await?;
     state.oauth2_service.delete_client(&client_id).await
 }
 
@@ -173,14 +200,15 @@ mod tests {
         PasswordConfig,
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
-            KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlManagementRoleRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
-            ManagementRoleRepo, PrivateKeyKeyringRepo,
+            ApplicationRepo, KeyRepo, KeyService, LibSqlApplicationRepo, LibSqlClientRepo,
+            LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo,
+            LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
 
     use crate::RouterState;
+    use crate::router::routes::roles::MANAGEMENT_APPLICATION_ID;
 
     static NEXT_TEST_DB_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -194,7 +222,7 @@ mod tests {
         URL_SAFE_NO_PAD.encode(serde_json::to_vec(value).expect("token JSON serialization failed"))
     }
 
-    fn bearer_token_for_key(kid: u32, sub: i64, scopes: &[&str]) -> String {
+    fn bearer_token_for_key(kid: u32, sub: i64) -> String {
         let header = serde_json::json!({
             "alg": "ES256K",
             "typ": "JWT",
@@ -211,7 +239,7 @@ mod tests {
             aud: "test-audience".to_string(),
             sub: sub.to_string(),
             resource: None,
-            scope: scopes.iter().map(|scope| (*scope).to_string()).collect(),
+            scope: Vec::new(),
         };
 
         format!(
@@ -239,10 +267,37 @@ mod tests {
         row.get(0).expect("missing inserted user id")
     }
 
-    async fn test_router_with_role_setup(
-        role_setup: RoleSetup,
-        scopes: &[&str],
-    ) -> (Router, String) {
+    async fn insert_test_client(
+        oauth2_service: &OAuth2Service<
+            LibSqlClientRepo,
+            LibSqlKeyRepo,
+            LibSqlOAuth2AuthorizationCodeRepo,
+            LibSqlUserRepo,
+            LibSqlOAuth2UserConsentRepo,
+        >,
+        application_id: i64,
+    ) -> String {
+        let client = oauth2_service
+            .register_client(test_client_registration(application_id))
+            .await
+            .expect("register client failed");
+
+        client.client_id.expect("registered client id missing")
+    }
+
+    async fn insert_test_application(database: &Arc<libsql::Database>) -> i64 {
+        LibSqlApplicationRepo::new(database.clone())
+            .create_application(
+                "client-route-application".to_string(),
+                "https://example.test/applications/client-route".to_string(),
+                None,
+            )
+            .await
+            .expect("create application failed")
+            .id
+    }
+
+    async fn test_router_with_role_setup(role_setup: RoleSetup) -> (Router, String, i64, String) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time error")
@@ -267,6 +322,8 @@ mod tests {
             .await
             .expect("migrations failed");
 
+        let application_id = insert_test_application(&database).await;
+
         let key_service = Arc::new(KeyService::new(
             LibSqlKeyRepo::new(database.clone()),
             PrivateKeyKeyringRepo::new("lidp-management-test"),
@@ -287,10 +344,11 @@ mod tests {
             "lidp-management-test".to_string(),
         ));
 
-        let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
+        let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "client-route-test-user").await;
+        let target_client_id = insert_test_client(oauth2_service.as_ref(), application_id).await;
         let caller_key = key_repo
             .create_key(
                 None,
@@ -307,36 +365,61 @@ mod tests {
             RoleSetup::Bootstrap => {}
             RoleSetup::NonAdmin => {
                 let viewer_role = role_repo
-                    .create_role("viewer", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "viewer", None)
                     .await
                     .expect("create viewer role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, viewer_role.id)
+                    .upsert_role_permission(viewer_role.id, "users.write")
+                    .await
+                    .expect("grant viewer permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        viewer_role.id,
+                    )
                     .await
                     .expect("assign viewer role failed");
             }
             RoleSetup::Admin => {
                 let admin_role = role_repo
-                    .create_role("admin", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                     .await
                     .expect("create admin role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, admin_role.id)
+                    .upsert_role_permission(admin_role.id, "clients.write")
+                    .await
+                    .expect("grant admin permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        admin_role.id,
+                    )
                     .await
                     .expect("assign admin role failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        &target_client_id,
+                        caller_user_id,
+                        admin_role.id,
+                    )
+                    .await
+                    .expect("assign admin client role failed");
             }
         }
 
-        let token = bearer_token_for_key(caller_key.id, caller_user_id, scopes);
+        let token = bearer_token_for_key(caller_key.id, caller_user_id);
 
         let state = RouterState::new("", "", database, role_repo, oauth2_service);
         let router = crate::openapi_router(state, "/").into();
 
-        (router, token)
+        (router, token, application_id, target_client_id)
     }
 
-    fn test_client_registration() -> ClientRegistration {
+    fn test_client_registration(application_id: i64) -> ClientRegistration {
         ClientRegistration {
+            application_id,
             client_id: None,
             client_secret: None,
             client_id_issued_at: None,
@@ -360,14 +443,19 @@ mod tests {
         }
     }
 
-    async fn post_create_client(router: Router, token: &str) -> (StatusCode, Vec<u8>) {
+    async fn post_create_client(
+        router: Router,
+        token: &str,
+        application_id: i64,
+    ) -> (StatusCode, Vec<u8>) {
         let request = Request::builder()
             .method("POST")
             .uri("/clients")
             .header("content-type", "application/json")
             .header(AUTHORIZATION, format!("Bearer {token}"))
             .body(Body::from(
-                serde_json::to_vec(&test_client_registration()).expect("serialize body failed"),
+                serde_json::to_vec(&test_client_registration(application_id))
+                    .expect("serialize body failed"),
             ))
             .expect("build request failed");
 
@@ -410,11 +498,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_client_route_denies_when_scope_is_missing() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:clients:read"]).await;
+    async fn create_client_route_denies_without_permission_assignments() {
+        let (router, token, application_id, _) =
+            test_router_with_role_setup(RoleSetup::Bootstrap).await;
 
-        let (status, body) = post_create_client(router, &token).await;
+        let (status, body) = post_create_client(router, &token, application_id).await;
 
         assert_eq!(status, StatusCode::FORBIDDEN);
         let error: ErrorResponse = serde_json::from_slice(&body).expect("decode error response");
@@ -422,24 +510,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_client_route_allows_bootstrap_without_role_assignments() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:clients:write"]).await;
-
-        let (status, body) = post_create_client(router, &token).await;
-
-        assert_eq!(status, StatusCode::OK);
-        let client: ClientRegistration =
-            serde_json::from_slice(&body).expect("decode client response");
-        assert_eq!(client.client_name, "client-under-test");
-    }
-
-    #[tokio::test]
     async fn create_client_route_denies_non_admin_when_assignments_exist() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::NonAdmin, &["lidp:clients:write"]).await;
+        let (router, token, application_id, _) =
+            test_router_with_role_setup(RoleSetup::NonAdmin).await;
 
-        let (status, body) = post_create_client(router, &token).await;
+        let (status, body) = post_create_client(router, &token, application_id).await;
 
         assert_eq!(status, StatusCode::FORBIDDEN);
         let error: ErrorResponse = serde_json::from_slice(&body).expect("decode error response");
@@ -448,10 +523,10 @@ mod tests {
 
     #[tokio::test]
     async fn create_client_route_allows_admin_when_assignments_exist() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Admin, &["lidp:clients:write"]).await;
+        let (router, token, application_id, _) =
+            test_router_with_role_setup(RoleSetup::Admin).await;
 
-        let (status, body) = post_create_client(router, &token).await;
+        let (status, body) = post_create_client(router, &token, application_id).await;
 
         assert_eq!(status, StatusCode::OK);
         let client: ClientRegistration =
@@ -460,11 +535,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_client_route_denies_when_scope_is_missing() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:clients:read"]).await;
+    async fn delete_client_route_denies_without_permission_assignments() {
+        let (router, token, _, client_id) = test_router_with_role_setup(RoleSetup::Bootstrap).await;
 
-        let (status, body) = delete_client_by_id(router, &token, "client-under-test").await;
+        let (status, body) = delete_client_by_id(router, &token, &client_id).await;
 
         assert_eq!(status, StatusCode::FORBIDDEN);
         let error: ErrorResponse = serde_json::from_slice(&body).expect("decode error response");
@@ -472,21 +546,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_client_route_allows_bootstrap_without_role_assignments() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:clients:write"]).await;
-
-        let (status, _) = delete_client_by_id(router, &token, "client-under-test").await;
-
-        assert_eq!(status, StatusCode::OK);
-    }
-
-    #[tokio::test]
     async fn delete_client_route_denies_non_admin_when_assignments_exist() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::NonAdmin, &["lidp:clients:write"]).await;
+        let (router, token, _, client_id) = test_router_with_role_setup(RoleSetup::NonAdmin).await;
 
-        let (status, body) = delete_client_by_id(router, &token, "client-under-test").await;
+        let (status, body) = delete_client_by_id(router, &token, &client_id).await;
 
         assert_eq!(status, StatusCode::FORBIDDEN);
         let error: ErrorResponse = serde_json::from_slice(&body).expect("decode error response");
@@ -495,10 +558,9 @@ mod tests {
 
     #[tokio::test]
     async fn delete_client_route_allows_admin_when_assignments_exist() {
-        let (router, token) =
-            test_router_with_role_setup(RoleSetup::Admin, &["lidp:clients:write"]).await;
+        let (router, token, _, client_id) = test_router_with_role_setup(RoleSetup::Admin).await;
 
-        let (status, _) = delete_client_by_id(router, &token, "client-under-test").await;
+        let (status, _) = delete_client_by_id(router, &token, &client_id).await;
 
         assert_eq!(status, StatusCode::OK);
     }

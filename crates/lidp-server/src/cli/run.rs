@@ -7,8 +7,9 @@ use service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{
-        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
-        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
+        KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
+        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
+        PrivateKeyKeyringRepo,
     },
 };
 use std::{
@@ -64,6 +65,7 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let bootstrap_service = BootstrapService::new(
+        LibSqlApplicationRepo::new(database.clone()),
         LibSqlClientRepo::new(database.clone(), key_service.clone()),
         LibSqlUserRepo::new(
             database.clone(),

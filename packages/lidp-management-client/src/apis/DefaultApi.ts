@@ -55,6 +55,7 @@ import {
 } from "../models/index.js";
 
 export interface AssignRoleToUserRequest {
+    applicationId: string;
     userId: number;
     roleId: number;
 }
@@ -64,6 +65,7 @@ export interface CreateClientRequest {
 }
 
 export interface CreateRoleOperationRequest {
+    applicationId: string;
     createRoleRequest: CreateRoleRequest;
 }
 
@@ -72,6 +74,7 @@ export interface DeleteClientRequest {
 }
 
 export interface DeleteRoleRequest {
+    applicationId: string;
     roleId: number;
 }
 
@@ -101,6 +104,7 @@ export interface ListClientsRequest {
 }
 
 export interface ListRolesRequest {
+    applicationId: string;
     offset: number;
     limit: number;
 }
@@ -112,6 +116,7 @@ export interface ListUserConsentsRequest {
 }
 
 export interface ListUserRolesRequest {
+    applicationId: string;
     userId: number;
 }
 
@@ -126,6 +131,7 @@ export interface ResetUserPasswordOperationRequest {
 }
 
 export interface RevokeRoleFromUserRequest {
+    applicationId: string;
     userId: number;
     roleId: number;
 }
@@ -154,6 +160,7 @@ export interface UpdateUserOperationRequest {
 export interface DefaultApiInterface {
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {number} userId User ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
@@ -193,6 +200,7 @@ export interface DefaultApiInterface {
 
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {CreateRoleRequest} createRoleRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -231,6 +239,7 @@ export interface DefaultApiInterface {
 
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -381,6 +390,7 @@ export interface DefaultApiInterface {
 
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {number} offset
      * @param {number} limit
      * @param {*} [options] Override http request option.
@@ -422,6 +432,7 @@ export interface DefaultApiInterface {
 
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {number} userId User ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -497,6 +508,7 @@ export interface DefaultApiInterface {
 
     /**
      *
+     * @param {string} applicationId Application ID
      * @param {number} userId User ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
@@ -602,6 +614,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: AssignRoleToUserRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling assignRoleToUser().',
+            );
+        }
+
         if (requestParameters["userId"] == null) {
             throw new runtime.RequiredError(
                 "userId",
@@ -629,7 +648,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/users/{user_id}/roles/{role_id}`;
+        let urlPath = `/applications/{application_id}/users/{user_id}/roles/{role_id}`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
         urlPath = urlPath.replace(
             `{${"user_id"}}`,
             encodeURIComponent(String(requestParameters["userId"])),
@@ -728,6 +751,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: CreateRoleOperationRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<RoleResponse>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling createRole().',
+            );
+        }
+
         if (requestParameters["createRoleRequest"] == null) {
             throw new runtime.RequiredError(
                 "createRoleRequest",
@@ -750,7 +780,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/roles`;
+        let urlPath = `/applications/{application_id}/roles`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
 
         const response = await this.request(
             {
@@ -843,6 +877,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: DeleteRoleRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling deleteRole().',
+            );
+        }
+
         if (requestParameters["roleId"] == null) {
             throw new runtime.RequiredError(
                 "roleId",
@@ -863,7 +904,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/roles/{role_id}`;
+        let urlPath = `/applications/{application_id}/roles/{role_id}`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
         urlPath = urlPath.replace(
             `{${"role_id"}}`,
             encodeURIComponent(String(requestParameters["roleId"])),
@@ -1297,6 +1342,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: ListRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<Array<RoleResponse>>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling listRoles().',
+            );
+        }
+
         if (requestParameters["offset"] == null) {
             throw new runtime.RequiredError(
                 "offset",
@@ -1324,7 +1376,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/roles`;
+        let urlPath = `/applications/{application_id}/roles`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
         urlPath = urlPath.replace(
             `{${"offset"}}`,
             encodeURIComponent(String(requestParameters["offset"])),
@@ -1450,6 +1506,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: ListUserRolesRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<Array<UserRoleResponse>>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling listUserRoles().',
+            );
+        }
+
         if (requestParameters["userId"] == null) {
             throw new runtime.RequiredError(
                 "userId",
@@ -1470,7 +1533,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/users/{user_id}/roles`;
+        let urlPath = `/applications/{application_id}/users/{user_id}/roles`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
         urlPath = urlPath.replace(
             `{${"user_id"}}`,
             encodeURIComponent(String(requestParameters["userId"])),
@@ -1679,6 +1746,13 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
         requestParameters: RevokeRoleFromUserRequest,
         initOverrides?: RequestInit | runtime.InitOverrideFunction,
     ): Promise<runtime.ApiResponse<void>> {
+        if (requestParameters["applicationId"] == null) {
+            throw new runtime.RequiredError(
+                "applicationId",
+                'Required parameter "applicationId" was null or undefined when calling revokeRoleFromUser().',
+            );
+        }
+
         if (requestParameters["userId"] == null) {
             throw new runtime.RequiredError(
                 "userId",
@@ -1706,7 +1780,11 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             }
         }
 
-        let urlPath = `/users/{user_id}/roles/{role_id}`;
+        let urlPath = `/applications/{application_id}/users/{user_id}/roles/{role_id}`;
+        urlPath = urlPath.replace(
+            `{${"application_id"}}`,
+            encodeURIComponent(String(requestParameters["applicationId"])),
+        );
         urlPath = urlPath.replace(
             `{${"user_id"}}`,
             encodeURIComponent(String(requestParameters["userId"])),

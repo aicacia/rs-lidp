@@ -9,7 +9,7 @@ use model::{
 
 use crate::{
     PasswordConfig,
-    repo::{KeyService, LibSqlKeyRepo, RepoError, RepoResult, UserRepo},
+    repo::{KeyService, LibSqlKeyRepo, PrivateKeyRepo, RepoError, RepoResult, UserRepo},
     util::encrypt_password,
 };
 
@@ -279,7 +279,7 @@ impl UserRepo for LibSqlUserRepo {
                     libsql::Error::Misuse(format!("invalid rows returned for user password: {}", e))
                 })?;
 
-                key_service
+                let key = key_service
                     .key_repo()
                     .tx_create_key(
                         None,
@@ -291,6 +291,19 @@ impl UserRepo for LibSqlUserRepo {
                         transaction,
                     )
                     .await
+                    .map_err(RepoError::into_libsql)?;
+
+                let derivation_path = key
+                    .derivation_path()
+                    .map_err(RepoError::from)
+                    .map_err(RepoError::into_libsql)?;
+
+                key_service
+                    .private_key_repo()
+                    .ensure_derivation_path(
+                        &key_service.scoped_namespace(EntityType::User, user.id),
+                        derivation_path,
+                    )
                     .map_err(RepoError::into_libsql)?;
 
                 Ok((user, email, password))

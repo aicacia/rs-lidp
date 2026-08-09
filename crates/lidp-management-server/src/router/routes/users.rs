@@ -8,10 +8,10 @@ use service::oauth2::UpdateUserInfoRequest;
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
-use super::roles::require_rbac_admin;
+use super::roles::{MANAGEMENT_APPLICATION_ID, require_client_permission};
 
-const USERS_READ_SCOPES: &[&str] = &["lidp:admin", "lidp:users:read"];
-const USERS_WRITE_SCOPES: &[&str] = &["lidp:admin", "lidp:users:write"];
+const USERS_READ_PERMISSION: &str = "users.read";
+const USERS_WRITE_PERMISSION: &str = "users.write";
 
 #[derive(
     Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::IntoParams, utoipa::ToSchema,
@@ -37,7 +37,13 @@ pub(crate) async fn list_users(
     Query(query): Query<ListUsersQuery>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<UserInfo>>, ErrorResponse> {
-    authorization.require_any_scope(USERS_READ_SCOPES)?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        USERS_READ_PERMISSION,
+    )
+    .await?;
 
     let users = state
         .oauth2_service
@@ -63,7 +69,13 @@ pub(crate) async fn get_user(
     Path(user_id): Path<i64>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<UserInfo>, ErrorResponse> {
-    authorization.require_any_scope(USERS_READ_SCOPES)?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        USERS_READ_PERMISSION,
+    )
+    .await?;
 
     let user = state.oauth2_service.find_user_info(user_id).await?;
     Ok(Json(user))
@@ -112,8 +124,13 @@ pub(crate) async fn update_user(
     authorization: ManagementAuthorization,
     Json(body): Json<UpdateUserRequest>,
 ) -> Result<Json<UserInfo>, ErrorResponse> {
-    authorization.require_any_scope(USERS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        USERS_WRITE_PERMISSION,
+    )
+    .await?;
 
     let user = state
         .oauth2_service
@@ -161,8 +178,13 @@ pub(crate) async fn reset_user_password(
     authorization: ManagementAuthorization,
     Json(body): Json<ResetUserPasswordRequest>,
 ) -> Result<(), ErrorResponse> {
-    authorization.require_any_scope(USERS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        USERS_WRITE_PERMISSION,
+    )
+    .await?;
     state
         .oauth2_service
         .reset_user_password(user_id, &body.password)
@@ -185,8 +207,13 @@ pub(crate) async fn delete_user(
     Path(user_id): Path<i64>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
-    authorization.require_any_scope(USERS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        USERS_WRITE_PERMISSION,
+    )
+    .await?;
     state.oauth2_service.delete_user(user_id).await
 }
 
@@ -221,14 +248,15 @@ mod tests {
         PasswordConfig,
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
-            KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlManagementRoleRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
-            ManagementRoleRepo, PrivateKeyKeyringRepo,
+            KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo,
+            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo,
+            LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
 
     use crate::RouterState;
+    use crate::router::routes::roles::MANAGEMENT_APPLICATION_ID;
 
     static NEXT_TEST_DB_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -242,7 +270,7 @@ mod tests {
         URL_SAFE_NO_PAD.encode(serde_json::to_vec(value).expect("token JSON serialization failed"))
     }
 
-    fn bearer_token_for_key(kid: u32, sub: i64, scopes: &[&str]) -> String {
+    fn bearer_token_for_key(kid: u32, sub: i64) -> String {
         let header = serde_json::json!({
             "alg": "ES256K",
             "typ": "JWT",
@@ -259,7 +287,7 @@ mod tests {
             aud: "test-audience".to_string(),
             sub: sub.to_string(),
             resource: None,
-            scope: scopes.iter().map(|scope| (*scope).to_string()).collect(),
+            scope: Vec::new(),
         };
 
         format!(
@@ -287,10 +315,7 @@ mod tests {
         row.get(0).expect("missing inserted user id")
     }
 
-    async fn test_router_with_role_setup(
-        role_setup: RoleSetup,
-        scopes: &[&str],
-    ) -> (Router, String, i64) {
+    async fn test_router_with_role_setup(role_setup: RoleSetup) -> (Router, String, i64) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time error")
@@ -335,7 +360,7 @@ mod tests {
             "lidp-management-test".to_string(),
         ));
 
-        let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
+        let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "user-route-caller").await;
@@ -357,27 +382,43 @@ mod tests {
             RoleSetup::Bootstrap => {}
             RoleSetup::NonAdmin => {
                 let viewer_role = role_repo
-                    .create_role("viewer", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "viewer", None)
                     .await
                     .expect("create viewer role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, viewer_role.id)
+                    .upsert_role_permission(viewer_role.id, "clients.write")
+                    .await
+                    .expect("grant viewer permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        viewer_role.id,
+                    )
                     .await
                     .expect("assign viewer role failed");
             }
             RoleSetup::Admin => {
                 let admin_role = role_repo
-                    .create_role("admin", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                     .await
                     .expect("create admin role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, admin_role.id)
+                    .upsert_role_permission(admin_role.id, "users.write")
+                    .await
+                    .expect("grant admin permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        admin_role.id,
+                    )
                     .await
                     .expect("assign admin role failed");
             }
         }
 
-        let token = bearer_token_for_key(caller_key.id, caller_user_id, scopes);
+        let token = bearer_token_for_key(caller_key.id, caller_user_id);
 
         let state = RouterState::new("", "", database, role_repo, oauth2_service);
         let router = crate::openapi_router(state, "/").into();
@@ -444,9 +485,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_user_route_denies_when_scope_is_missing() {
+    async fn update_user_route_denies_without_permission_assignments() {
         let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:users:read"]).await;
+            test_router_with_role_setup(RoleSetup::Bootstrap).await;
 
         let (status, body) = patch_update_user(router, &token, target_user_id).await;
 
@@ -456,22 +497,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_user_route_allows_bootstrap_without_role_assignments() {
+    async fn update_user_route_denies_when_wrong_permission_assigned() {
         let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:users:write"]).await;
-
-        let (status, body) = patch_update_user(router, &token, target_user_id).await;
-
-        assert_eq!(status, StatusCode::OK);
-        let response: serde_json::Value =
-            serde_json::from_slice(&body).expect("decode user response");
-        assert_eq!(response["name"], "updated-user-name");
-    }
-
-    #[tokio::test]
-    async fn update_user_route_denies_non_admin_when_assignments_exist() {
-        let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::NonAdmin, &["lidp:users:write"]).await;
+            test_router_with_role_setup(RoleSetup::NonAdmin).await;
 
         let (status, body) = patch_update_user(router, &token, target_user_id).await;
 
@@ -481,9 +509,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_user_route_allows_admin_when_assignments_exist() {
-        let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Admin, &["lidp:users:write"]).await;
+    async fn update_user_route_allows_when_permission_assigned() {
+        let (router, token, target_user_id) = test_router_with_role_setup(RoleSetup::Admin).await;
 
         let (status, body) = patch_update_user(router, &token, target_user_id).await;
 
@@ -494,9 +521,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reset_user_password_route_denies_when_scope_is_missing() {
+    async fn reset_user_password_route_denies_without_permission_assignments() {
         let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:users:read"]).await;
+            test_router_with_role_setup(RoleSetup::Bootstrap).await;
 
         let (status, body) = post_reset_user_password(router, &token, target_user_id).await;
 
@@ -506,19 +533,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reset_user_password_route_allows_bootstrap_without_role_assignments() {
+    async fn reset_user_password_route_denies_when_wrong_permission_assigned() {
         let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:users:write"]).await;
-
-        let (status, _) = post_reset_user_password(router, &token, target_user_id).await;
-
-        assert_eq!(status, StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn reset_user_password_route_denies_non_admin_when_assignments_exist() {
-        let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::NonAdmin, &["lidp:users:write"]).await;
+            test_router_with_role_setup(RoleSetup::NonAdmin).await;
 
         let (status, body) = post_reset_user_password(router, &token, target_user_id).await;
 
@@ -528,9 +545,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reset_user_password_route_allows_admin_when_assignments_exist() {
-        let (router, token, target_user_id) =
-            test_router_with_role_setup(RoleSetup::Admin, &["lidp:users:write"]).await;
+    async fn reset_user_password_route_allows_when_permission_assigned() {
+        let (router, token, target_user_id) = test_router_with_role_setup(RoleSetup::Admin).await;
 
         let (status, _) = post_reset_user_password(router, &token, target_user_id).await;
 

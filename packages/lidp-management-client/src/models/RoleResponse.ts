@@ -21,6 +21,12 @@ import { mapValues } from "../runtime.js";
 export interface RoleResponse {
     /**
      *
+     * @type {string}
+     * @memberof RoleResponse
+     */
+    applicationId: string;
+    /**
+     *
      * @type {number}
      * @memberof RoleResponse
      */
@@ -55,6 +61,8 @@ export interface RoleResponse {
  * Check if a given object implements the RoleResponse interface.
  */
 export function instanceOfRoleResponse(value: object): value is RoleResponse {
+    if (!("applicationId" in value) || value["applicationId"] === undefined)
+        return false;
     if (!("createdAt" in value) || value["createdAt"] === undefined)
         return false;
     if (!("id" in value) || value["id"] === undefined) return false;
@@ -76,6 +84,7 @@ export function RoleResponseFromJSONTyped(
         return json;
     }
     return {
+        applicationId: json["application_id"],
         createdAt: json["created_at"],
         description:
             json["description"] == null ? undefined : json["description"],
@@ -98,6 +107,7 @@ export function RoleResponseToJSONTyped(
     }
 
     return {
+        application_id: value["applicationId"],
         created_at: value["createdAt"],
         description: value["description"],
         id: value["id"],

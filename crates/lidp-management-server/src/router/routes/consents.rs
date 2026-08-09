@@ -2,16 +2,15 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use model::contract::ErrorResponse;
+use model::contract::{ErrorCode, ErrorResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
-use super::roles::require_rbac_admin;
+use super::roles::{MANAGEMENT_APPLICATION_ID, require_client_permission};
 
-const CONSENTS_READ_SCOPES: &[&str] = &["lidp:admin", "lidp:consents:read", "lidp:sessions:read"];
-const CONSENTS_WRITE_SCOPES: &[&str] =
-    &["lidp:admin", "lidp:consents:write", "lidp:sessions:write"];
+const CONSENTS_READ_PERMISSION: &str = "consents.read";
+const CONSENTS_WRITE_PERMISSION: &str = "consents.write";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::ToSchema)]
 pub(crate) struct UserConsentResponse {
@@ -66,7 +65,13 @@ pub(crate) async fn list_user_consents(
     Query(query): Query<ListUserConsentsQuery>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<UserConsentResponse>>, ErrorResponse> {
-    authorization.require_any_scope(CONSENTS_READ_SCOPES)?;
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        MANAGEMENT_APPLICATION_ID,
+        CONSENTS_READ_PERMISSION,
+    )
+    .await?;
 
     let consents = state
         .oauth2_service
@@ -93,8 +98,23 @@ pub(crate) async fn revoke_user_consent(
     Path((user_id, consent_id)): Path<(i64, i64)>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
-    authorization.require_any_scope(CONSENTS_WRITE_SCOPES)?;
-    require_rbac_admin(state.role_repo.as_ref(), &authorization).await?;
+    let consent = state
+        .oauth2_service
+        .list_user_consents(user_id, 0, 1_000)
+        .await?
+        .into_iter()
+        .find(|item| item.id == consent_id)
+        .ok_or_else(|| {
+            ErrorResponse::new(ErrorCode::NotFound).with_description("User consent not found")
+        })?;
+
+    require_client_permission(
+        state.role_repo.as_ref(),
+        &authorization,
+        &consent.client_id,
+        CONSENTS_WRITE_PERMISSION,
+    )
+    .await?;
 
     state
         .oauth2_service
@@ -134,14 +154,15 @@ mod tests {
         PasswordConfig,
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
-            KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlManagementRoleRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
-            ManagementRoleRepo, PrivateKeyKeyringRepo,
+            ApplicationRepo, KeyRepo, KeyService, LibSqlApplicationRepo, LibSqlClientRepo,
+            LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo,
+            LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
 
     use crate::RouterState;
+    use crate::router::routes::roles::MANAGEMENT_APPLICATION_ID;
 
     static NEXT_TEST_DB_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -155,7 +176,7 @@ mod tests {
         URL_SAFE_NO_PAD.encode(serde_json::to_vec(value).expect("token JSON serialization failed"))
     }
 
-    fn bearer_token_for_key(kid: u32, sub: i64, scopes: &[&str]) -> String {
+    fn bearer_token_for_key(kid: u32, sub: i64) -> String {
         let header = serde_json::json!({
             "alg": "ES256K",
             "typ": "JWT",
@@ -172,7 +193,7 @@ mod tests {
             aud: "test-audience".to_string(),
             sub: sub.to_string(),
             resource: None,
-            scope: scopes.iter().map(|scope| (*scope).to_string()).collect(),
+            scope: Vec::new(),
         };
 
         format!(
@@ -182,8 +203,9 @@ mod tests {
         )
     }
 
-    fn test_client_registration() -> ClientRegistration {
+    fn test_client_registration(application_id: i64) -> ClientRegistration {
         ClientRegistration {
+            application_id,
             client_id: None,
             client_secret: None,
             client_id_issued_at: None,
@@ -225,6 +247,18 @@ mod tests {
         row.get(0).expect("missing inserted user id")
     }
 
+    async fn insert_test_application(database: &Arc<libsql::Database>) -> i64 {
+        LibSqlApplicationRepo::new(database.clone())
+            .create_application(
+                "consent-route-application".to_string(),
+                "https://example.test/applications/consent-route".to_string(),
+                None,
+            )
+            .await
+            .expect("create application failed")
+            .id
+    }
+
     async fn insert_test_consent(
         database: &libsql::Database,
         oauth2_service: &OAuth2Service<
@@ -234,19 +268,21 @@ mod tests {
             LibSqlUserRepo,
             LibSqlOAuth2UserConsentRepo,
         >,
+        application_id: i64,
         user_id: i64,
-    ) -> i64 {
+    ) -> (String, i64) {
         let client = oauth2_service
-            .register_client(test_client_registration())
+            .register_client(test_client_registration(application_id))
             .await
             .expect("register client failed");
 
         let client_id = client.client_id.expect("registered client id missing");
+        let consent_client_id = client_id.clone();
         let connection = database.connect().expect("database connect failed");
         let mut rows = connection
             .query(
                 "INSERT INTO oauth2_user_consents (user_id, client_id, redirect_uri, scope) VALUES (?, ?, ?, ?) RETURNING id",
-                params![user_id, client_id, "https://example.test/callback", "openid"],
+                params![user_id, consent_client_id, "https://example.test/callback", "openid"],
             )
             .await
             .expect("insert consent failed");
@@ -256,13 +292,12 @@ mod tests {
             .expect("failed to read consent row")
             .expect("missing inserted consent row");
 
-        row.get(0).expect("missing inserted consent id")
+        (client_id, row.get(0).expect("missing inserted consent id"))
     }
 
     async fn test_router_with_role_setup(
         role_setup: RoleSetup,
-        scopes: &[&str],
-    ) -> (Router, String, i64, i64) {
+    ) -> (Router, String, i64, i64, String) {
         let unique_suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("system time error")
@@ -287,6 +322,8 @@ mod tests {
             .await
             .expect("migrations failed");
 
+        let application_id = insert_test_application(&database).await;
+
         let key_service = Arc::new(KeyService::new(
             LibSqlKeyRepo::new(database.clone()),
             PrivateKeyKeyringRepo::new("lidp-management-test"),
@@ -307,13 +344,18 @@ mod tests {
             "lidp-management-test".to_string(),
         ));
 
-        let role_repo = Arc::new(LibSqlManagementRoleRepo::new(database.clone()));
+        let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
         let key_repo = LibSqlKeyRepo::new(database.clone());
 
         let caller_user_id = insert_test_user(&database, "consent-route-caller").await;
         let target_user_id = insert_test_user(&database, "consent-route-target").await;
-        let consent_id =
-            insert_test_consent(&database, oauth2_service.as_ref(), target_user_id).await;
+        let (consent_client_id, consent_id) = insert_test_consent(
+            &database,
+            oauth2_service.as_ref(),
+            application_id,
+            target_user_id,
+        )
+        .await;
 
         let caller_key = key_repo
             .create_key(
@@ -331,32 +373,56 @@ mod tests {
             RoleSetup::Bootstrap => {}
             RoleSetup::NonAdmin => {
                 let viewer_role = role_repo
-                    .create_role("viewer", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "viewer", None)
                     .await
                     .expect("create viewer role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, viewer_role.id)
+                    .upsert_role_permission(viewer_role.id, "users.write")
+                    .await
+                    .expect("grant viewer permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        viewer_role.id,
+                    )
                     .await
                     .expect("assign viewer role failed");
             }
             RoleSetup::Admin => {
                 let admin_role = role_repo
-                    .create_role("admin", None)
+                    .create_role(MANAGEMENT_APPLICATION_ID, "admin", None)
                     .await
                     .expect("create admin role failed");
                 role_repo
-                    .assign_role_to_user(caller_user_id, admin_role.id)
+                    .upsert_role_permission(admin_role.id, "consents.write")
+                    .await
+                    .expect("grant admin permission failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        MANAGEMENT_APPLICATION_ID,
+                        caller_user_id,
+                        admin_role.id,
+                    )
                     .await
                     .expect("assign admin role failed");
+                role_repo
+                    .assign_role_to_user_for_client(
+                        &consent_client_id,
+                        caller_user_id,
+                        admin_role.id,
+                    )
+                    .await
+                    .expect("assign admin client role failed");
             }
         }
 
-        let token = bearer_token_for_key(caller_key.id, caller_user_id, scopes);
+        let token = bearer_token_for_key(caller_key.id, caller_user_id);
 
         let state = RouterState::new("", "", database, role_repo, oauth2_service);
         let router = crate::openapi_router(state, "/").into();
 
-        (router, token, target_user_id, consent_id)
+        (router, token, target_user_id, consent_id, consent_client_id)
     }
 
     async fn delete_user_consent(
@@ -386,9 +452,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn revoke_user_consent_route_denies_when_scope_is_missing() {
-        let (router, token, target_user_id, consent_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:consents:read"]).await;
+    async fn revoke_user_consent_route_denies_without_permission_assignments() {
+        let (router, token, target_user_id, consent_id, _) =
+            test_router_with_role_setup(RoleSetup::Bootstrap).await;
 
         let (status, body) = delete_user_consent(router, &token, target_user_id, consent_id).await;
 
@@ -398,19 +464,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn revoke_user_consent_route_allows_bootstrap_without_role_assignments() {
-        let (router, token, target_user_id, consent_id) =
-            test_router_with_role_setup(RoleSetup::Bootstrap, &["lidp:consents:write"]).await;
-
-        let (status, _) = delete_user_consent(router, &token, target_user_id, consent_id).await;
-
-        assert_eq!(status, StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn revoke_user_consent_route_denies_non_admin_when_assignments_exist() {
-        let (router, token, target_user_id, consent_id) =
-            test_router_with_role_setup(RoleSetup::NonAdmin, &["lidp:consents:write"]).await;
+    async fn revoke_user_consent_route_denies_when_wrong_permission_assigned() {
+        let (router, token, target_user_id, consent_id, _) =
+            test_router_with_role_setup(RoleSetup::NonAdmin).await;
 
         let (status, body) = delete_user_consent(router, &token, target_user_id, consent_id).await;
 
@@ -420,9 +476,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn revoke_user_consent_route_allows_admin_when_assignments_exist() {
-        let (router, token, target_user_id, consent_id) =
-            test_router_with_role_setup(RoleSetup::Admin, &["lidp:consents:write"]).await;
+    async fn revoke_user_consent_route_allows_when_permission_assigned() {
+        let (router, token, target_user_id, consent_id, _) =
+            test_router_with_role_setup(RoleSetup::Admin).await;
 
         let (status, _) = delete_user_consent(router, &token, target_user_id, consent_id).await;
 

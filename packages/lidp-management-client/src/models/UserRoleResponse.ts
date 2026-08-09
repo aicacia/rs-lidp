@@ -21,6 +21,12 @@ import { mapValues } from "../runtime.js";
 export interface UserRoleResponse {
     /**
      *
+     * @type {string}
+     * @memberof UserRoleResponse
+     */
+    applicationId: string;
+    /**
+     *
      * @type {number}
      * @memberof UserRoleResponse
      */
@@ -63,6 +69,8 @@ export interface UserRoleResponse {
 export function instanceOfUserRoleResponse(
     value: object,
 ): value is UserRoleResponse {
+    if (!("applicationId" in value) || value["applicationId"] === undefined)
+        return false;
     if (!("createdAt" in value) || value["createdAt"] === undefined)
         return false;
     if (!("id" in value) || value["id"] === undefined) return false;
@@ -86,6 +94,7 @@ export function UserRoleResponseFromJSONTyped(
         return json;
     }
     return {
+        applicationId: json["application_id"],
         createdAt: json["created_at"],
         id: json["id"],
         roleId: json["role_id"],
@@ -108,6 +117,7 @@ export function UserRoleResponseToJSONTyped(
     }
 
     return {
+        application_id: value["applicationId"],
         created_at: value["createdAt"],
         id: value["id"],
         role_id: value["roleId"],

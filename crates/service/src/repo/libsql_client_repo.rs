@@ -7,7 +7,7 @@ use model::{
     model::Client,
 };
 
-use crate::repo::{ClientRepo, KeyService, LibSqlKeyRepo, RepoError, RepoResult};
+use crate::repo::{ClientRepo, KeyService, LibSqlKeyRepo, PrivateKeyRepo, RepoError, RepoResult};
 
 pub struct LibSqlClientRepo {
     database: Arc<Database>,
@@ -29,6 +29,7 @@ impl ClientRepo for LibSqlClientRepo {
         let query = r#"
             SELECT
                 id,
+                application_id,
                 client_id,
                 client_secret,
                 client_id_issued_at,
@@ -72,6 +73,7 @@ impl ClientRepo for LibSqlClientRepo {
         let query = r#"
             SELECT
                 id,
+                application_id,
                 client_id,
                 client_secret,
                 client_id_issued_at,
@@ -133,6 +135,7 @@ impl ClientRepo for LibSqlClientRepo {
 
                 let client_query = r#"
                 INSERT INTO clients (
+                    application_id,
                     client_id,
                     client_secret,
                     client_secret_expires_at,
@@ -154,12 +157,13 @@ impl ClientRepo for LibSqlClientRepo {
                     software_version
                 )
                 VALUES
-                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id, client_id;"#;
                 let mut rows = transaction
                     .query(
                         client_query,
                         libsql::params![
+                            client.application_id,
                             client.client_id,
                             client_secret.clone(),
                             client.client_secret_expires_at,
@@ -213,7 +217,7 @@ impl ClientRepo for LibSqlClientRepo {
                     .ensure_entity_master_key(EntityType::Client, id, passphrase.as_str())
                     .map_err(RepoError::into_libsql)?;
 
-                key_service
+                let key = key_service
                     .key_repo()
                     .tx_create_key(
                         None,
@@ -225,6 +229,19 @@ impl ClientRepo for LibSqlClientRepo {
                         transaction,
                     )
                     .await
+                    .map_err(RepoError::into_libsql)?;
+
+                let derivation_path = key
+                    .derivation_path()
+                    .map_err(RepoError::from)
+                    .map_err(RepoError::into_libsql)?;
+
+                key_service
+                    .private_key_repo()
+                    .ensure_derivation_path(
+                        &key_service.scoped_namespace(EntityType::Client, id),
+                        derivation_path,
+                    )
                     .map_err(RepoError::into_libsql)?;
 
                 Ok((id, client_id))
@@ -255,6 +272,7 @@ impl ClientRepo for LibSqlClientRepo {
             .execute(
                 "\
                 UPDATE clients SET
+                    application_id = ?,
                     client_secret = ?,
                     client_id_issued_at = ?,
                     client_secret_expires_at = ?,
@@ -277,6 +295,7 @@ impl ClientRepo for LibSqlClientRepo {
                     updated_at = ?
                 WHERE client_id = ?",
                 libsql::params![
+                    client.application_id,
                     client.client_secret,
                     client.client_id_issued_at.map(|d| d.timestamp()),
                     client.client_secret_expires_at.map(|d| d.timestamp()),

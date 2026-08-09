@@ -9,8 +9,10 @@ use alloc::{
 use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ManagementRole {
+pub struct Permission {
     pub id: i64,
+
+    pub application_id: String,
 
     pub name: String,
 

@@ -9,13 +9,12 @@ import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { env } from "$env/dynamic/public";
 import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
+import { getOidcClient } from "./oidc.svelte";
 
 const lidpManagementApiUrl = createStorage<string | null>(
     "lidp-management-api-url",
     env.PUBLIC_LIDP_MANAGEMENT_BASE_URL,
 );
-
-let authToken = $state<string | undefined>();
 
 const defaultConfigurationParameters: ConfigurationParameters = {
     middleware: [
@@ -32,7 +31,6 @@ const defaultConfigurationParameters: ConfigurationParameters = {
             post: async (context) => {
                 if (context.response.status === 401) {
                     setAfterSigninRedirectPathFromURL(page.url);
-                    authToken = undefined;
                     await goto(resolve("/signin"));
                 }
                 return context.response;
@@ -40,7 +38,7 @@ const defaultConfigurationParameters: ConfigurationParameters = {
         },
     ],
     accessToken() {
-        return authToken as string;
+      return getOidcClient().getStoredTokenResponse().access_token;
     },
     get basePath() {
         return lidpManagementApiUrl.item;
@@ -83,12 +81,4 @@ export async function validateLidpManagementApiUrl(
     } catch {
         return false;
     }
-}
-
-export function setAuthToken(newAuthToken?: string | null) {
-    authToken = newAuthToken ?? undefined;
-}
-
-export function getAuthToken() {
-    return authToken;
 }

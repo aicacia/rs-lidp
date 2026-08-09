@@ -165,6 +165,7 @@ where
         let now = Utc::now();
         let client = Client {
             id: existing.id,
+            application_id: existing.application_id,
             client_id: existing.client_id,
             client_secret: request.client_secret.unwrap_or(existing.client_secret),
             client_id_issued_at: existing.client_id_issued_at,
