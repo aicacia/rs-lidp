@@ -8,9 +8,8 @@
 
   const links = [
     { label: "Dashboard", path: "/" },
+    { label: "Applications", path: "/applications" },
     { label: "Users", path: "/users" },
-    { label: "Clients", path: "/clients" },
-    { label: "Roles", path: "/roles" },
   ] as const;
 
   function isActive(path: string): boolean {

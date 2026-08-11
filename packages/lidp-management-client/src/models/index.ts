@@ -1,8 +1,11 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from "./ApplicationResponse.js";
 export * from "./ClientProfile.js";
 export * from "./ClientRegistration.js";
 export * from "./ClientType.js";
+export * from "./CreateApplicationRequest.js";
+export * from "./CreatePermissionRequest.js";
 export * from "./CreateRoleRequest.js";
 export * from "./EntityType.js";
 export * from "./GrantType.js";
@@ -17,11 +20,12 @@ export * from "./JwkPublicParametersOneOf2.js";
 export * from "./JwsAlgorithm.js";
 export * from "./KeyUse.js";
 export * from "./ManagementKey.js";
-export * from "./ResetUserPasswordRequest.js";
+export * from "./PermissionResponse.js";
 export * from "./ResponseType.js";
 export * from "./RoleResponse.js";
 export * from "./TokenEndpointAuthMethod.js";
-export * from "./UpdateUserRequest.js";
+export * from "./UpdateApplicationRequest.js";
+export * from "./UserApplicationRoleResponse.js";
 export * from "./UserConsentResponse.js";
 export * from "./UserInfo.js";
 export * from "./VersionResponse.js";

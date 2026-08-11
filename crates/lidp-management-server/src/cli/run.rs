@@ -5,6 +5,7 @@ use db::{close_database, open_database};
 use env_logger::Env;
 use service::{
     bootstrap::BootstrapService,
+    management::ManagementService,
     oauth2::OAuth2Service,
     repo::{
         KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
@@ -97,12 +98,18 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+    let application_repo = Arc::new(LibSqlApplicationRepo::new(database.clone()));
+    let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
+    let management_service = Arc::new(ManagementService::new(
+        application_repo,
+        permission_repo,
+        role_repo,
+    ));
 
     let management_router_state = crate::RouterState::new(
-        &app_config.ui_public_url,
         &app_config.api_public_url,
         database.clone(),
-        role_repo,
+        management_service,
         oauth2_service,
     );
     let management_router =

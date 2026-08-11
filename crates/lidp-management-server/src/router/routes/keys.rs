@@ -64,7 +64,7 @@ pub(crate) async fn list_client_keys(
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<ManagementKey>>, ErrorResponse> {
     require_client_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &client_id,
         KEYS_READ_PERMISSION,
@@ -92,7 +92,7 @@ pub(crate) async fn get_key_jwk(
     authorization: ManagementAuthorization,
 ) -> Result<Json<JwkPublic>, ErrorResponse> {
     require_client_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         MANAGEMENT_APPLICATION_ID,
         KEYS_READ_PERMISSION,
@@ -123,6 +123,7 @@ mod tests {
         ResponseType, StandardClaims, TokenEndpointAuthMethod, TokenType, TokenUse,
     };
     use service::{
+        management::ManagementService,
         PasswordConfig,
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
@@ -375,7 +376,19 @@ mod tests {
 
         let token = bearer_token_for_key(caller_key.id, caller_user_id);
 
-        let state = RouterState::new("", "", database, role_repo, oauth2_service);
+        let application_repo = Arc::new(LibSqlApplicationRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
+        let management_service = Arc::new(ManagementService::new(
+            application_repo,
+            permission_repo,
+            role_repo,
+        ));
+        let state = RouterState::new(
+            "",
+            database,
+            management_service,
+            oauth2_service,
+        );
         let router = crate::openapi_router(state, "/").into();
 
         (router, token, client_id, key_id)

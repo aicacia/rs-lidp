@@ -49,6 +49,11 @@ pub trait RoleRepo {
         user_id: i64,
     ) -> impl Future<Output = RepoResult<Vec<Role>>>;
 
+    fn list_user_roles_across_applications(
+        &self,
+        user_id: i64,
+    ) -> impl Future<Output = RepoResult<Vec<Role>>>;
+
     fn list_user_permissions(
         &self,
         application_id: &str,

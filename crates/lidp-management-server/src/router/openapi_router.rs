@@ -6,6 +6,11 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use crate::RouterState;
 
 use super::openapi::{__path_openapi_json, openapi_json};
+use super::routes::applications::{
+    __path_create_application, __path_delete_application, __path_get_application,
+    __path_list_applications, __path_update_application, create_application, delete_application,
+    get_application, list_applications, update_application,
+};
 use super::routes::clients::{
     __path_create_client, __path_delete_client, __path_get_client, __path_list_clients,
     __path_update_client, create_client, delete_client, get_client, list_clients, update_client,
@@ -17,14 +22,20 @@ use super::routes::health::{__path_health, health};
 use super::routes::keys::{
     __path_get_key_jwk, __path_list_client_keys, get_key_jwk, list_client_keys,
 };
+use super::routes::permissions::{
+    __path_assign_permission_to_role, __path_create_permission, __path_delete_permission,
+    __path_list_permissions, __path_list_role_permissions, __path_revoke_permission_from_role,
+    assign_permission_to_role, create_permission, delete_permission, list_permissions,
+    list_role_permissions, revoke_permission_from_role,
+};
 use super::routes::roles::{
     __path_assign_role_to_user, __path_create_role, __path_delete_role, __path_list_roles,
     __path_list_user_roles, __path_revoke_role_from_user, assign_role_to_user, create_role,
     delete_role, list_roles, list_user_roles, revoke_role_from_user,
 };
 use super::routes::users::{
-    __path_delete_user, __path_get_user, __path_list_users, __path_reset_user_password,
-    __path_update_user, delete_user, get_user, list_users, reset_user_password, update_user,
+    __path_get_user, __path_list_user_roles_across_applications, __path_list_users, get_user,
+    list_user_roles_across_applications, list_users,
 };
 use super::routes::version::{__path_version, version};
 
@@ -43,6 +54,11 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
         OpenApiRouter::new()
             .routes(routes!(health))
             .routes(routes!(version))
+            .routes(routes!(list_applications))
+            .routes(routes!(create_application))
+            .routes(routes!(get_application))
+            .routes(routes!(update_application))
+            .routes(routes!(delete_application))
             .routes(routes!(list_clients))
             .routes(routes!(create_client))
             .routes(routes!(get_client))
@@ -52,9 +68,7 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
             .routes(routes!(get_key_jwk))
             .routes(routes!(list_users))
             .routes(routes!(get_user))
-            .routes(routes!(update_user))
-            .routes(routes!(reset_user_password))
-            .routes(routes!(delete_user))
+            .routes(routes!(list_user_roles_across_applications))
             .routes(routes!(list_user_consents))
             .routes(routes!(revoke_user_consent))
             .routes(routes!(list_roles))
@@ -63,6 +77,12 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
             .routes(routes!(list_user_roles))
             .routes(routes!(assign_role_to_user))
             .routes(routes!(revoke_role_from_user))
+            .routes(routes!(list_permissions))
+            .routes(routes!(create_permission))
+            .routes(routes!(delete_permission))
+            .routes(routes!(list_role_permissions))
+            .routes(routes!(assign_permission_to_role))
+            .routes(routes!(revoke_permission_from_role))
     };
 
     let spec_router = OpenApiRouter::with_openapi(ApiDoc::openapi()).merge(routes());

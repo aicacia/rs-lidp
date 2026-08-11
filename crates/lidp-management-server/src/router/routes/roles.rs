@@ -4,7 +4,7 @@ use axum::{
 };
 use model::contract::{ErrorCode, ErrorResponse};
 use serde::{Deserialize, Serialize};
-use service::repo::RoleRepo;
+use service::management::ManagementService;
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
@@ -70,7 +70,7 @@ pub(crate) async fn list_roles(
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<RoleResponse>>, ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_READ_PERMISSION,
@@ -78,7 +78,7 @@ pub(crate) async fn list_roles(
     .await?;
 
     let roles = state
-        .role_repo
+        .management_service
         .list_roles(&application_id, query.offset, normalize_limit(query.limit))
         .await
         .map_err(ErrorResponse::from)?;
@@ -105,7 +105,7 @@ pub(crate) async fn create_role(
     Json(body): Json<CreateRoleRequest>,
 ) -> Result<Json<RoleResponse>, ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_WRITE_PERMISSION,
@@ -113,7 +113,7 @@ pub(crate) async fn create_role(
     .await?;
 
     let role = state
-        .role_repo
+        .management_service
         .create_role(&application_id, &body.name, body.description.as_deref())
         .await
         .map_err(ErrorResponse::from)?;
@@ -139,7 +139,7 @@ pub(crate) async fn delete_role(
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_WRITE_PERMISSION,
@@ -147,7 +147,7 @@ pub(crate) async fn delete_role(
     .await?;
 
     if state
-        .role_repo
+        .management_service
         .find_role_by_id(&application_id, role_id)
         .await
         .map_err(ErrorResponse::from)?
@@ -157,7 +157,7 @@ pub(crate) async fn delete_role(
     }
 
     state
-        .role_repo
+        .management_service
         .delete_role_by_id(&application_id, role_id)
         .await
         .map_err(ErrorResponse::from)
@@ -181,7 +181,7 @@ pub(crate) async fn list_user_roles(
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<RoleResponse>>, ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_READ_PERMISSION,
@@ -189,7 +189,7 @@ pub(crate) async fn list_user_roles(
     .await?;
 
     let roles = state
-        .role_repo
+        .management_service
         .list_user_roles(&application_id, user_id)
         .await
         .map_err(ErrorResponse::from)?;
@@ -216,7 +216,7 @@ pub(crate) async fn assign_role_to_user(
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_WRITE_PERMISSION,
@@ -224,7 +224,7 @@ pub(crate) async fn assign_role_to_user(
     .await?;
 
     if state
-        .role_repo
+        .management_service
         .find_role_by_id(&application_id, role_id)
         .await
         .map_err(ErrorResponse::from)?
@@ -234,7 +234,7 @@ pub(crate) async fn assign_role_to_user(
     }
 
     state
-        .role_repo
+        .management_service
         .add_role_to_user(&application_id, user_id, role_id)
         .await
         .map_err(ErrorResponse::from)
@@ -259,7 +259,7 @@ pub(crate) async fn revoke_role_from_user(
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
-        state.role_repo.as_ref(),
+        state.management_service.as_ref(),
         &authorization,
         &application_id,
         ROLES_WRITE_PERMISSION,
@@ -267,20 +267,20 @@ pub(crate) async fn revoke_role_from_user(
     .await?;
 
     state
-        .role_repo
+        .management_service
         .remove_role_from_user(&application_id, user_id, role_id)
         .await
         .map_err(ErrorResponse::from)
 }
 
 pub(crate) async fn require_application_permission(
-    role_repo: &impl RoleRepo,
+    management_service: &ManagementService,
     authorization: &ManagementAuthorization,
     application_id: &str,
     permission: &str,
 ) -> Result<(), ErrorResponse> {
-    let has_permission = role_repo
-        .has_user_client_permission(
+    let has_permission = management_service
+        .has_user_application_permission(
             authorization.principal.get_entity_id(),
             application_id,
             permission,
@@ -325,12 +325,14 @@ mod tests {
         EntityType, ErrorCode, ErrorResponse, StandardClaims, TokenType, TokenUse,
     };
     use service::{
+        management::ManagementService,
         PasswordConfig,
         oauth2::{OAuth2Config, OAuth2Service},
         repo::{
-            KeyRepo, KeyService, LibSqlClientRepo, LibSqlKeyRepo,
-            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
-            LibSqlRoleRepo, LibSqlUserRepo, PermissionRepo, PrivateKeyKeyringRepo, RoleRepo,
+            KeyRepo, KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
+            LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo,
+            LibSqlPermissionRepo, LibSqlRoleRepo, LibSqlUserRepo, PermissionRepo,
+            PrivateKeyKeyringRepo, RoleRepo,
         },
     };
     use tower::util::ServiceExt;
@@ -495,7 +497,19 @@ mod tests {
 
         let token = bearer_token_for_key(caller_key.id, caller_user_id);
 
-        let state = RouterState::new("", "", database, role_repo, oauth2_service);
+        let application_repo = Arc::new(LibSqlApplicationRepo::new(database.clone()));
+        let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
+        let management_service = Arc::new(ManagementService::new(
+            application_repo,
+            permission_repo,
+            role_repo,
+        ));
+        let state = RouterState::new(
+            "",
+            database,
+            management_service,
+            oauth2_service,
+        );
         let router = crate::openapi_router(state, "/").into();
 
         (router, token)

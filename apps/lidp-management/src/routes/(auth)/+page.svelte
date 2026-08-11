@@ -21,24 +21,18 @@
 	</div>
 
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<a
+			class="card secondary default hover:opacity-90"
+			href={resolve("/applications")}
+		>
+			<h2 class="mb-1 text-2xl">Applications</h2>
+			<p class="mb-0 text-sm opacity-80">
+				Manage application settings, roles, permissions, and clients.
+			</p>
+		</a>
 		<a class="card secondary default hover:opacity-90" href={resolve("/users")}>
 			<h2 class="mb-1 text-2xl">Users</h2>
 			<p class="mb-0 text-sm opacity-80">Browse and manage user records.</p>
-		</a>
-		<a
-			class="card secondary default hover:opacity-90"
-			href={resolve("/clients")}
-		>
-			<h2 class="mb-1 text-2xl">Clients</h2>
-			<p class="mb-0 text-sm opacity-80">
-				Browse and manage OAuth client registrations.
-			</p>
-		</a>
-		<a class="card secondary default hover:opacity-90" href={resolve("/roles")}>
-			<h2 class="mb-1 text-2xl">Roles</h2>
-			<p class="mb-0 text-sm opacity-80">
-				Create, review, and remove assignable roles.
-			</p>
 		</a>
 	</div>
 </div>

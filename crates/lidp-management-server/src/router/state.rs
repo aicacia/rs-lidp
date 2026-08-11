@@ -2,20 +2,20 @@ use std::sync::Arc;
 
 use libsql::Database;
 use service::{
+    management::ManagementService,
     oauth2::OAuth2Service,
     repo::{
         LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
-        LibSqlOAuth2UserConsentRepo, LibSqlRoleRepo, LibSqlUserRepo,
+        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo,
     },
 };
 
 #[derive(Clone)]
 pub struct RouterState {
-    pub ui_base_url: String,
-    pub api_base_url: String,
-    pub database: Arc<Database>,
-    pub role_repo: Arc<LibSqlRoleRepo>,
-    pub oauth2_service: Arc<
+    pub(crate) api_base_url: String,
+    pub(crate) database: Arc<Database>,
+    pub(crate) management_service: Arc<ManagementService>,
+    pub(crate) oauth2_service: Arc<
         OAuth2Service<
             LibSqlClientRepo,
             LibSqlKeyRepo,
@@ -28,10 +28,9 @@ pub struct RouterState {
 
 impl RouterState {
     pub fn new(
-        ui_base_url: impl Into<String>,
         api_base_url: impl Into<String>,
         database: Arc<Database>,
-        role_repo: Arc<LibSqlRoleRepo>,
+        management_service: Arc<ManagementService>,
         oauth2_service: Arc<
             OAuth2Service<
                 LibSqlClientRepo,
@@ -43,10 +42,9 @@ impl RouterState {
         >,
     ) -> Self {
         Self {
-            ui_base_url: ui_base_url.into(),
             api_base_url: api_base_url.into(),
             database,
-            role_repo,
+            management_service,
             oauth2_service,
         }
     }

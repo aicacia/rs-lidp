@@ -210,6 +210,33 @@ impl RoleRepo for LibSqlRoleRepo {
         Ok(roles)
     }
 
+    async fn list_user_roles_across_applications(&self, user_id: i64) -> RepoResult<Vec<Role>> {
+        let connection = self.database.connect()?;
+        let query = r#"
+            SELECT
+                r.id,
+                r.application_id,
+                r.name,
+                r.description,
+                r.created_at,
+                r.updated_at
+            FROM roles r
+            INNER JOIN application_user_roles aur ON r.id = aur.role_id
+            WHERE aur.user_id = ?
+                AND aur.application_id = r.application_id
+            ORDER BY r.application_id ASC, r.name ASC
+        "#;
+
+        let mut rows = connection.query(query, libsql::params![user_id]).await?;
+        let mut roles = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            roles.push(from_row::<Role>(&row)?);
+        }
+
+        Ok(roles)
+    }
+
     async fn list_user_permissions(
         &self,
         application_id: &str,

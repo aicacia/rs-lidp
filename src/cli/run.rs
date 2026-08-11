@@ -5,6 +5,7 @@ use db::{close_database, open_database};
 use env_logger::Env;
 use service::{
     bootstrap::BootstrapService,
+    management::ManagementService,
     oauth2::OAuth2Service,
     repo::{
         KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
@@ -105,12 +106,15 @@ pub async fn run() -> io::Result<()> {
     );
     let lidp_router = lidp_server::openapi_router(lidp_router_state, "/lidp");
 
-    let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
+    let management_service = Arc::new(ManagementService::new(
+        LibSqlApplicationRepo::new(database.clone()),
+        LibSqlPermissionRepo::new(database.clone()),
+        LibSqlRoleRepo::new(database.clone()),
+    ));
     let management_router_state = lidp_management_server::RouterState::new(
-        &app_config.ui_public_url,
         &app_config.api_public_url,
         database.clone(),
-        role_repo,
+        management_service,
         oauth2_service,
     );
     let management_router =
