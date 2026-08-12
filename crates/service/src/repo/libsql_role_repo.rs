@@ -42,7 +42,7 @@ fn permission_matches(granted: &str, required: &str) -> bool {
 impl RoleRepo for LibSqlRoleRepo {
     async fn list_roles(
         &self,
-        application_id: &str,
+        application_id: i64,
         offset: u32,
         limit: u32,
     ) -> RepoResult<Vec<Role>> {
@@ -78,7 +78,7 @@ impl RoleRepo for LibSqlRoleRepo {
 
     async fn create_role(
         &self,
-        application_id: &str,
+        application_id: i64,
         name: &str,
         description: Option<&str>,
     ) -> RepoResult<Role> {
@@ -107,11 +107,7 @@ impl RoleRepo for LibSqlRoleRepo {
         Ok(from_row::<Role>(&row)?)
     }
 
-    async fn find_role_by_id(
-        &self,
-        application_id: &str,
-        role_id: i64,
-    ) -> RepoResult<Option<Role>> {
+    async fn find_role_by_id(&self, application_id: i64, role_id: i64) -> RepoResult<Option<Role>> {
         let connection = self.database.connect()?;
         let query = r#"
             SELECT
@@ -139,7 +135,7 @@ impl RoleRepo for LibSqlRoleRepo {
         Ok(Some(from_row::<Role>(&row)?))
     }
 
-    async fn delete_role_by_id(&self, application_id: &str, role_id: i64) -> RepoResult<()> {
+    async fn delete_role_by_id(&self, application_id: i64, role_id: i64) -> RepoResult<()> {
         let connection = self.database.connect()?;
         connection
             .execute(
@@ -152,7 +148,7 @@ impl RoleRepo for LibSqlRoleRepo {
 
     async fn add_role_to_user(
         &self,
-        application_id: &str,
+        application_id: i64,
         user_id: i64,
         role_id: i64,
     ) -> RepoResult<()> {
@@ -168,7 +164,7 @@ impl RoleRepo for LibSqlRoleRepo {
 
     async fn remove_role_from_user(
         &self,
-        application_id: &str,
+        application_id: i64,
         user_id: i64,
         role_id: i64,
     ) -> RepoResult<()> {
@@ -182,7 +178,7 @@ impl RoleRepo for LibSqlRoleRepo {
         Ok(())
     }
 
-    async fn list_user_roles(&self, application_id: &str, user_id: i64) -> RepoResult<Vec<Role>> {
+    async fn list_user_roles(&self, application_id: i64, user_id: i64) -> RepoResult<Vec<Role>> {
         let connection = self.database.connect()?;
         let query = r#"
             SELECT
@@ -239,7 +235,7 @@ impl RoleRepo for LibSqlRoleRepo {
 
     async fn list_user_permissions(
         &self,
-        application_id: &str,
+        application_id: i64,
         user_id: i64,
     ) -> RepoResult<Vec<model::model::Permission>> {
         let connection = self.database.connect()?;
@@ -274,7 +270,7 @@ impl RoleRepo for LibSqlRoleRepo {
     async fn has_user_client_permission(
         &self,
         user_id: i64,
-        application_id: &str,
+        application_uri: &str,
         permission_name: &str,
     ) -> RepoResult<bool> {
         let connection = self.database.connect()?;
@@ -283,15 +279,17 @@ impl RoleRepo for LibSqlRoleRepo {
             FROM application_user_roles aur
             INNER JOIN role_permissions rp ON aur.role_id = rp.role_id
             INNER JOIN permissions p ON rp.permission_id = p.id
-            WHERE aur.user_id = ? AND aur.application_id = ?
+            INNER JOIN applications a ON aur.application_id = a.id
+            WHERE aur.user_id = ? AND a.uri = ?
         "#;
 
         let mut rows = connection
-            .query(query, libsql::params![user_id, application_id])
+            .query(query, libsql::params![user_id, application_uri])
             .await?;
 
         while let Some(row) = rows.next().await? {
             let granted_permission = row.get::<String>(0)?;
+
             if permission_matches(&granted_permission, permission_name) {
                 return Ok(true);
             }

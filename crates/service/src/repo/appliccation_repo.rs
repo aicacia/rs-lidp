@@ -5,7 +5,7 @@ use crate::repo::RepoResult;
 pub trait ApplicationRepo {
     fn find_by_id(
         &self,
-        application_id: &str,
+        application_id: i64,
     ) -> impl Future<Output = RepoResult<Option<Application>>>;
 
     fn find_by_uri(&self, uri: &str) -> impl Future<Output = RepoResult<Option<Application>>>;
@@ -28,8 +28,6 @@ pub trait ApplicationRepo {
         application: Application,
     ) -> impl Future<Output = RepoResult<Application>>;
 
-    fn delete_application_by_id(
-        &self,
-        application_id: &str,
-    ) -> impl Future<Output = RepoResult<()>>;
+    fn delete_application_by_id(&self, application_id: i64)
+    -> impl Future<Output = RepoResult<()>>;
 }

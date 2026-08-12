@@ -20,7 +20,7 @@ CREATE TABLE users (
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_users_name` ON `users`(`name`);
 
@@ -39,7 +39,7 @@ CREATE TABLE `user_emails` (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
     UNIQUE(`user_id`, `email`)
-);
+) STRICT;
 
 CREATE INDEX `idx_user_emails_user_id`
     ON `user_emails`(`user_id`);
@@ -63,7 +63,7 @@ CREATE TABLE user_phone_numbers (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
     UNIQUE(`user_id`, `phone_number`)
-);
+) STRICT;
 
 CREATE INDEX `idx_user_phone_numbers_user_id`
     ON `user_phone_numbers`(`user_id`);
@@ -83,7 +83,7 @@ CREATE TABLE `user_passwords` (
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_user_passwords_user_id`
     ON `user_passwords`(`user_id`);
@@ -92,12 +92,12 @@ CREATE TABLE `applications` (
     `id` INTEGER PRIMARY KEY,
 
     `name` TEXT NOT NULL,
-    `uri` TEXT NOT NULL,
+    `uri` TEXT NOT NULL UNIQUE,
     `description` TEXT,
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_applications_name`
     ON `applications`(`name`);
@@ -145,7 +145,7 @@ CREATE TABLE `clients` (
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_clients_application_id`
     ON `clients`(`application_id`);
@@ -171,7 +171,7 @@ CREATE TABLE `keys` (
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_keys_parent_id` ON `keys`(`parent_id`);
 CREATE UNIQUE INDEX `idx_keys_entity_type_entity_id`
@@ -204,7 +204,7 @@ CREATE TABLE `oauth2_authorization_codes` (
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_oauth2_authorization_codes_client`
     ON `oauth2_authorization_codes`(`client_id`);
@@ -232,7 +232,7 @@ CREATE TABLE `oauth2_user_consents` (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
     UNIQUE(`user_id`, `client_id`, `redirect_uri`, `scope`)
-);
+) STRICT;
 
 CREATE INDEX `idx_oauth2_user_consents_user_client`
     ON `oauth2_user_consents`(`user_id`, `client_id`);
@@ -240,14 +240,14 @@ CREATE INDEX `idx_oauth2_user_consents_user_client`
 CREATE TABLE roles (
     `id` INTEGER PRIMARY KEY,
 
-    `application_id` TEXT NOT NULL,
+    `application_id` INTEGER NOT NULL,
 
     `name` TEXT NOT NULL UNIQUE,
     `description` TEXT,
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_roles_application_id`
     ON `roles`(`application_id`);
@@ -258,14 +258,14 @@ CREATE UNIQUE INDEX `idx_roles_application_name`
 CREATE TABLE permissions (
     `id` INTEGER PRIMARY KEY,
 
-    `application_id` TEXT NOT NULL,
+    `application_id` INTEGER NOT NULL,
 
     `name` TEXT NOT NULL UNIQUE,
     `description` TEXT,
 
     `created_at` INTEGER NOT NULL DEFAULT (unixepoch()),
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch())
-);
+) STRICT;
 
 CREATE INDEX `idx_permissions_application_id`
     ON `roles`(`application_id`);
@@ -286,7 +286,7 @@ CREATE TABLE role_permissions (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
     UNIQUE(`role_id`, `permission_id`)
-);
+) STRICT;
 
 CREATE INDEX `idx_role_permissions_role_id`
     ON `role_permissions`(`role_id`);
@@ -300,7 +300,7 @@ CREATE TABLE application_user_roles (
     `user_id` INTEGER NOT NULL
         REFERENCES `users`(`id`) ON DELETE CASCADE,
 
-    `application_id` TEXT NOT NULL,
+    `application_id` INTEGER NOT NULL,
 
     `role_id` INTEGER NOT NULL
         REFERENCES `roles`(`id`) ON DELETE CASCADE,
@@ -309,7 +309,7 @@ CREATE TABLE application_user_roles (
     `updated_at` INTEGER NOT NULL DEFAULT (unixepoch()),
 
     UNIQUE(`user_id`, `application_id`, `role_id`)
-);
+) STRICT;
 
 CREATE INDEX `idx_application_user_roles_user_id`
     ON `application_user_roles`(`user_id`);

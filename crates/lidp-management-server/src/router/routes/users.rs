@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
-use super::roles::{MANAGEMENT_APPLICATION_ID, require_application_permission};
+use super::roles::require_application_permission;
 
 const USERS_READ_PERMISSION: &str = "users.read";
 
@@ -24,7 +24,7 @@ pub(crate) struct ListUsersQuery {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::ToSchema)]
 pub(crate) struct UserApplicationRoleResponse {
     pub role_id: i64,
-    pub application_id: String,
+    pub application_id: i64,
     pub role_name: String,
     pub role_description: Option<String>,
     pub created_at: i64,
@@ -61,7 +61,6 @@ pub(crate) async fn list_users(
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        MANAGEMENT_APPLICATION_ID,
         USERS_READ_PERMISSION,
     )
     .await?;
@@ -93,7 +92,6 @@ pub(crate) async fn get_user(
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        MANAGEMENT_APPLICATION_ID,
         USERS_READ_PERMISSION,
     )
     .await?;
@@ -121,7 +119,6 @@ pub(crate) async fn list_user_roles_across_applications(
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        MANAGEMENT_APPLICATION_ID,
         USERS_READ_PERMISSION,
     )
     .await?;

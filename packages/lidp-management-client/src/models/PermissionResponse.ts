@@ -21,10 +21,10 @@ import { mapValues } from "../runtime.js";
 export interface PermissionResponse {
     /**
      *
-     * @type {string}
+     * @type {number}
      * @memberof PermissionResponse
      */
-    applicationId: string;
+    applicationId: number;
     /**
      *
      * @type {number}

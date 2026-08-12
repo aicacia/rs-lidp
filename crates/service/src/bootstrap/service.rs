@@ -154,7 +154,7 @@ where
             .await?;
 
         let admin_user = self.ensure_admin_user().await?;
-        self.ensure_management_admin_access(admin_user.id, &lidp_management_application.uri)
+        self.ensure_management_admin_access(admin_user.id, lidp_management_application.id)
             .await?;
         let _admin_user_key = self
             .ensure_active_key(
@@ -313,8 +313,13 @@ where
     async fn ensure_management_admin_access(
         &self,
         user_id: i64,
-        application_id: &str,
+        application_id: i64,
     ) -> RepoResult<()> {
+        log::debug!(
+            "Ensuring management admin access for user_id: {} and application_id: {}",
+            user_id,
+            application_id
+        );
         let role = self
             .ensure_role(
                 application_id,
@@ -341,15 +346,30 @@ where
 
     async fn ensure_role(
         &self,
-        application_id: &str,
+        application_id: i64,
         role_name: &str,
         description: Option<&str>,
     ) -> RepoResult<model::model::Role> {
+        log::debug!(
+            "Ensuring role with name: {} for application_id: {}",
+            role_name,
+            application_id
+        );
         let roles = self.role_repo.list_roles(application_id, 0, 1_000).await?;
         if let Some(role) = roles.into_iter().find(|role| role.name == role_name) {
+            log::debug!(
+                "Found existing role with name: {} for application_id: {}",
+                role_name,
+                application_id
+            );
             return Ok(role);
         }
 
+        log::debug!(
+            "Creating new role with name: {} for application_id: {}",
+            role_name,
+            application_id
+        );
         self.role_repo
             .create_role(application_id, role_name, description)
             .await
@@ -357,7 +377,7 @@ where
 
     async fn ensure_permission(
         &self,
-        application_id: &str,
+        application_id: i64,
         permission_name: &str,
         description: Option<&str>,
     ) -> RepoResult<model::model::Permission> {
@@ -369,9 +389,19 @@ where
             .into_iter()
             .find(|permission| permission.name == permission_name)
         {
+            log::debug!(
+                "Found existing permission with name: {} for application_id: {}",
+                permission_name,
+                application_id
+            );
             return Ok(permission);
         }
 
+        log::debug!(
+            "Creating new permission with name: {} for application_id: {}",
+            permission_name,
+            application_id
+        );
         self.permission_repo
             .create_permission(application_id, permission_name, description)
             .await
@@ -379,7 +409,7 @@ where
 
     async fn ensure_role_permission(
         &self,
-        application_id: &str,
+        application_id: i64,
         role_id: i64,
         permission_id: i64,
     ) -> RepoResult<()> {
@@ -391,9 +421,21 @@ where
             .iter()
             .any(|permission| permission.id == permission_id)
         {
+            log::debug!(
+                "Role with id: {} already has permission with id: {} for application_id: {}",
+                role_id,
+                permission_id,
+                application_id
+            );
             return Ok(());
         }
 
+        log::debug!(
+            "Adding permission with id: {} to role with id: {} for application_id: {}",
+            permission_id,
+            role_id,
+            application_id
+        );
         self.permission_repo
             .add_permission_to_role(application_id, role_id, permission_id)
             .await
@@ -401,7 +443,7 @@ where
 
     async fn ensure_user_role(
         &self,
-        application_id: &str,
+        application_id: i64,
         user_id: i64,
         role_id: i64,
     ) -> RepoResult<()> {
@@ -410,9 +452,21 @@ where
             .list_user_roles(application_id, user_id)
             .await?;
         if user_roles.iter().any(|role| role.id == role_id) {
+            log::debug!(
+                "User with id: {} already has role with id: {} for application_id: {}",
+                user_id,
+                role_id,
+                application_id
+            );
             return Ok(());
         }
 
+        log::debug!(
+            "Adding role with id: {} to user with id: {} for application_id: {}",
+            role_id,
+            user_id,
+            application_id
+        );
         self.role_repo
             .add_role_to_user(application_id, user_id, role_id)
             .await

@@ -152,10 +152,12 @@
             <tr
               class="border-b border-gray-200 align-top last:border-b-0 dark:border-gray-800"
             >
-              <td class="px-4 py-3">{application.id}</td>
+              <td class="px-4 py-3">
+                  <a href={resolve(`/applications/${application.id}`)}>{application.id}</a
+                ></td>
               <td class="px-4 py-3">{application.name}</td>
               <td class="px-4 py-3">
-                <a href={resolve(`/applications/${application.uri}`)}
+                <a href={resolve(`/applications/${application.id}`)}
                   >{application.uri}</a
                 >
               </td>

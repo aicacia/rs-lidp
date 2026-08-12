@@ -21,10 +21,10 @@ import { mapValues } from "../runtime.js";
 export interface RoleResponse {
     /**
      *
-     * @type {string}
+     * @type {number}
      * @memberof RoleResponse
      */
-    applicationId: string;
+    applicationId: number;
     /**
      *
      * @type {number}

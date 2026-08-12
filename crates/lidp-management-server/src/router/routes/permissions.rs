@@ -15,7 +15,7 @@ const PERMISSIONS_WRITE_PERMISSION: &str = "permissions.write";
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, utoipa::ToSchema)]
 pub(crate) struct PermissionResponse {
     pub id: i64,
-    pub application_id: String,
+    pub application_id: i64,
     pub name: String,
     pub description: Option<String>,
     pub created_at: i64,
@@ -55,7 +55,7 @@ pub(crate) struct CreatePermissionRequest {
     get,
     path = "/applications/{application_id}/permissions",
     params(
-        ("application_id" = String, Path, description = "Application ID"),
+        ("application_id" = i64, Path, description = "Application ID"),
         ListPermissionsQuery
     ),
     responses((status = 200, description = "List permissions", body = [PermissionResponse])),
@@ -65,21 +65,20 @@ pub(crate) struct CreatePermissionRequest {
 )]
 pub(crate) async fn list_permissions(
     State(state): State<RouterState>,
-    Path(application_id): Path<String>,
+    Path(application_id): Path<i64>,
     Query(query): Query<ListPermissionsQuery>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<PermissionResponse>>, ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_READ_PERMISSION,
     )
     .await?;
 
     let permissions = state
         .management_service
-        .list_permissions(&application_id, query.offset, normalize_limit(query.limit))
+        .list_permissions(application_id, query.offset, normalize_limit(query.limit))
         .await
         .map_err(ErrorResponse::from)?;
 
@@ -90,7 +89,7 @@ pub(crate) async fn list_permissions(
     post,
     path = "/applications/{application_id}/permissions",
     params(
-        ("application_id" = String, Path, description = "Application ID")
+        ("application_id" = i64, Path, description = "Application ID")
     ),
     request_body = CreatePermissionRequest,
     responses((status = 201, description = "Create permission", body = PermissionResponse)),
@@ -100,21 +99,20 @@ pub(crate) async fn list_permissions(
 )]
 pub(crate) async fn create_permission(
     State(state): State<RouterState>,
-    Path(application_id): Path<String>,
+    Path(application_id): Path<i64>,
     authorization: ManagementAuthorization,
     Json(body): Json<CreatePermissionRequest>,
 ) -> Result<Json<PermissionResponse>, ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_WRITE_PERMISSION,
     )
     .await?;
 
     let permission = state
         .management_service
-        .create_permission(&application_id, &body.name, body.description.as_deref())
+        .create_permission(application_id, &body.name, body.description.as_deref())
         .await
         .map_err(ErrorResponse::from)?;
 
@@ -125,7 +123,7 @@ pub(crate) async fn create_permission(
     delete,
     path = "/applications/{application_id}/permissions/{permission_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID"),
+        ("application_id" = i64, Path, description = "Application ID"),
         ("permission_id" = i64, Path, description = "Permission ID")
     ),
     responses((status = 204, description = "Delete permission")),
@@ -135,20 +133,19 @@ pub(crate) async fn create_permission(
 )]
 pub(crate) async fn delete_permission(
     State(state): State<RouterState>,
-    Path((application_id, permission_id)): Path<(String, i64)>,
+    Path((application_id, permission_id)): Path<(i64, i64)>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_WRITE_PERMISSION,
     )
     .await?;
 
     if state
         .management_service
-        .find_permission_by_id(&application_id, permission_id)
+        .find_permission_by_id(application_id, permission_id)
         .await
         .map_err(ErrorResponse::from)?
         .is_none()
@@ -160,7 +157,7 @@ pub(crate) async fn delete_permission(
 
     state
         .management_service
-        .delete_permission_by_id(&application_id, permission_id)
+        .delete_permission_by_id(application_id, permission_id)
         .await
         .map_err(ErrorResponse::from)
 }
@@ -169,7 +166,7 @@ pub(crate) async fn delete_permission(
     get,
     path = "/applications/{application_id}/roles/{role_id}/permissions",
     params(
-        ("application_id" = String, Path, description = "Application ID"),
+        ("application_id" = i64, Path, description = "Application ID"),
         ("role_id" = i64, Path, description = "Role ID")
     ),
     responses((status = 200, description = "List role permissions", body = [PermissionResponse])),
@@ -179,20 +176,19 @@ pub(crate) async fn delete_permission(
 )]
 pub(crate) async fn list_role_permissions(
     State(state): State<RouterState>,
-    Path((application_id, role_id)): Path<(String, i64)>,
+    Path((application_id, role_id)): Path<(i64, i64)>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<Vec<PermissionResponse>>, ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_READ_PERMISSION,
     )
     .await?;
 
     let permissions = state
         .management_service
-        .list_role_permissions(&application_id, role_id)
+        .list_role_permissions(application_id, role_id)
         .await
         .map_err(ErrorResponse::from)?;
 
@@ -203,7 +199,7 @@ pub(crate) async fn list_role_permissions(
     post,
     path = "/applications/{application_id}/roles/{role_id}/permissions/{permission_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID"),
+        ("application_id" = i64, Path, description = "Application ID"),
         ("role_id" = i64, Path, description = "Role ID"),
         ("permission_id" = i64, Path, description = "Permission ID")
     ),
@@ -214,20 +210,19 @@ pub(crate) async fn list_role_permissions(
 )]
 pub(crate) async fn assign_permission_to_role(
     State(state): State<RouterState>,
-    Path((application_id, role_id, permission_id)): Path<(String, i64, i64)>,
+    Path((application_id, role_id, permission_id)): Path<(i64, i64, i64)>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_WRITE_PERMISSION,
     )
     .await?;
 
     if state
         .management_service
-        .find_role_by_id(&application_id, role_id)
+        .find_role_by_id(application_id, role_id)
         .await
         .map_err(ErrorResponse::from)?
         .is_none()
@@ -237,7 +232,7 @@ pub(crate) async fn assign_permission_to_role(
 
     if state
         .management_service
-        .find_permission_by_id(&application_id, permission_id)
+        .find_permission_by_id(application_id, permission_id)
         .await
         .map_err(ErrorResponse::from)?
         .is_none()
@@ -249,7 +244,7 @@ pub(crate) async fn assign_permission_to_role(
 
     state
         .management_service
-        .add_permission_to_role(&application_id, role_id, permission_id)
+        .add_permission_to_role(application_id, role_id, permission_id)
         .await
         .map_err(ErrorResponse::from)
 }
@@ -258,7 +253,7 @@ pub(crate) async fn assign_permission_to_role(
     delete,
     path = "/applications/{application_id}/roles/{role_id}/permissions/{permission_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID"),
+        ("application_id" = i64, Path, description = "Application ID"),
         ("role_id" = i64, Path, description = "Role ID"),
         ("permission_id" = i64, Path, description = "Permission ID")
     ),
@@ -269,20 +264,19 @@ pub(crate) async fn assign_permission_to_role(
 )]
 pub(crate) async fn revoke_permission_from_role(
     State(state): State<RouterState>,
-    Path((application_id, role_id, permission_id)): Path<(String, i64, i64)>,
+    Path((application_id, role_id, permission_id)): Path<(i64, i64, i64)>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         PERMISSIONS_WRITE_PERMISSION,
     )
     .await?;
 
     state
         .management_service
-        .remove_permission_from_role(&application_id, role_id, permission_id)
+        .remove_permission_from_role(application_id, role_id, permission_id)
         .await
         .map_err(ErrorResponse::from)
 }

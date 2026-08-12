@@ -97,9 +97,9 @@ pub async fn run() -> io::Result<()> {
         app_config.key_namespace.clone(),
     ));
 
-    let role_repo = Arc::new(LibSqlRoleRepo::new(database.clone()));
-    let application_repo = Arc::new(LibSqlApplicationRepo::new(database.clone()));
-    let permission_repo = Arc::new(LibSqlPermissionRepo::new(database.clone()));
+    let role_repo = LibSqlRoleRepo::new(database.clone());
+    let application_repo = LibSqlApplicationRepo::new(database.clone());
+    let permission_repo = LibSqlPermissionRepo::new(database.clone());
     let management_service = Arc::new(ManagementService::new(
         application_repo,
         permission_repo,

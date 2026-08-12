@@ -1,3 +1,3 @@
 mod service;
 
-pub use service::ManagementService;
+pub use service::{MANAGEMENT_APPLICATION_URI, ManagementService};

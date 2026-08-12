@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
-use super::roles::{MANAGEMENT_APPLICATION_ID, require_application_permission};
+use super::roles::require_application_permission;
 
 const APPLICATIONS_READ_PERMISSION: &str = "applications.read";
 const APPLICATIONS_WRITE_PERMISSION: &str = "applications.write";
@@ -76,7 +76,6 @@ pub(crate) async fn list_applications(
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        MANAGEMENT_APPLICATION_ID,
         APPLICATIONS_READ_PERMISSION,
     )
     .await?;
@@ -107,7 +106,6 @@ pub(crate) async fn create_application(
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        MANAGEMENT_APPLICATION_ID,
         APPLICATIONS_WRITE_PERMISSION,
     )
     .await?;
@@ -125,7 +123,7 @@ pub(crate) async fn create_application(
     get,
     path = "/applications/{application_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID (URI)")
+        ("application_id" = i64, Path, description = "Application ID (URI)")
     ),
     responses((status = 200, description = "Get application", body = ApplicationResponse)),
     security(
@@ -134,20 +132,19 @@ pub(crate) async fn create_application(
 )]
 pub(crate) async fn get_application(
     State(state): State<RouterState>,
-    Path(application_id): Path<String>,
+    Path(application_id): Path<i64>,
     authorization: ManagementAuthorization,
 ) -> Result<Json<ApplicationResponse>, ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         APPLICATIONS_READ_PERMISSION,
     )
     .await?;
 
     let application = state
         .management_service
-        .find_application_by_uri(&application_id)
+        .find_application_by_id(application_id)
         .await
         .map_err(ErrorResponse::from)?
         .ok_or_else(|| {
@@ -161,7 +158,7 @@ pub(crate) async fn get_application(
     put,
     path = "/applications/{application_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID (URI)")
+        ("application_id" = i64, Path, description = "Application ID (URI)")
     ),
     request_body = UpdateApplicationRequest,
     responses((status = 200, description = "Update application", body = ApplicationResponse)),
@@ -171,21 +168,20 @@ pub(crate) async fn get_application(
 )]
 pub(crate) async fn update_application(
     State(state): State<RouterState>,
-    Path(application_id): Path<String>,
+    Path(application_id): Path<i64>,
     authorization: ManagementAuthorization,
     Json(body): Json<UpdateApplicationRequest>,
 ) -> Result<Json<ApplicationResponse>, ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         APPLICATIONS_WRITE_PERMISSION,
     )
     .await?;
 
     let mut existing = state
         .management_service
-        .find_application_by_uri(&application_id)
+        .find_application_by_id(application_id)
         .await
         .map_err(ErrorResponse::from)?
         .ok_or_else(|| {
@@ -215,7 +211,7 @@ pub(crate) async fn update_application(
     delete,
     path = "/applications/{application_id}",
     params(
-        ("application_id" = String, Path, description = "Application ID (URI)")
+        ("application_id" = i64, Path, description = "Application ID (URI)")
     ),
     responses((status = 204, description = "Delete application")),
     security(
@@ -224,29 +220,19 @@ pub(crate) async fn update_application(
 )]
 pub(crate) async fn delete_application(
     State(state): State<RouterState>,
-    Path(application_id): Path<String>,
+    Path(application_id): Path<i64>,
     authorization: ManagementAuthorization,
 ) -> Result<(), ErrorResponse> {
     require_application_permission(
         state.management_service.as_ref(),
         &authorization,
-        &application_id,
         APPLICATIONS_WRITE_PERMISSION,
     )
     .await?;
 
-    let existing = state
-        .management_service
-        .find_application_by_uri(&application_id)
-        .await
-        .map_err(ErrorResponse::from)?
-        .ok_or_else(|| {
-            ErrorResponse::new(ErrorCode::NotFound).with_description("Application not found")
-        })?;
-
     state
         .management_service
-        .delete_application_by_id(&existing.id.to_string())
+        .delete_application_by_id(application_id)
         .await
         .map_err(ErrorResponse::from)
 }

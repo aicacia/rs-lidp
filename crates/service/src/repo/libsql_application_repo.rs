@@ -16,7 +16,7 @@ impl LibSqlApplicationRepo {
 }
 
 impl ApplicationRepo for LibSqlApplicationRepo {
-    async fn find_by_id(&self, application_id: &str) -> RepoResult<Option<Application>> {
+    async fn find_by_id(&self, application_id: i64) -> RepoResult<Option<Application>> {
         let connection = self.database.connect()?;
         let query = r#"
             SELECT id, name, uri, description, created_at, updated_at
@@ -137,7 +137,7 @@ impl ApplicationRepo for LibSqlApplicationRepo {
         Ok(updated_application)
     }
 
-    async fn delete_application_by_id(&self, application_id: &str) -> RepoResult<()> {
+    async fn delete_application_by_id(&self, application_id: i64) -> RepoResult<()> {
         let connection = self.database.connect()?;
         let query = r#"
             DELETE FROM applications

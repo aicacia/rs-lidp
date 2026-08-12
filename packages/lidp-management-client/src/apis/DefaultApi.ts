@@ -64,13 +64,13 @@ import {
 } from "../models/index.js";
 
 export interface AssignPermissionToRoleRequest {
-    applicationId: string;
+    applicationId: number;
     roleId: number;
     permissionId: number;
 }
 
 export interface AssignRoleToUserRequest {
-    applicationId: string;
+    applicationId: number;
     userId: number;
     roleId: number;
 }
@@ -84,17 +84,17 @@ export interface CreateClientRequest {
 }
 
 export interface CreatePermissionOperationRequest {
-    applicationId: string;
+    applicationId: number;
     createPermissionRequest: CreatePermissionRequest;
 }
 
 export interface CreateRoleOperationRequest {
-    applicationId: string;
+    applicationId: number;
     createRoleRequest: CreateRoleRequest;
 }
 
 export interface DeleteApplicationRequest {
-    applicationId: string;
+    applicationId: number;
 }
 
 export interface DeleteClientRequest {
@@ -102,17 +102,17 @@ export interface DeleteClientRequest {
 }
 
 export interface DeletePermissionRequest {
-    applicationId: string;
+    applicationId: number;
     permissionId: number;
 }
 
 export interface DeleteRoleRequest {
-    applicationId: string;
+    applicationId: number;
     roleId: number;
 }
 
 export interface GetApplicationRequest {
-    applicationId: string;
+    applicationId: number;
 }
 
 export interface GetClientRequest {
@@ -142,18 +142,18 @@ export interface ListClientsRequest {
 }
 
 export interface ListPermissionsRequest {
-    applicationId: string;
+    applicationId: number;
     offset: number;
     limit: number;
 }
 
 export interface ListRolePermissionsRequest {
-    applicationId: string;
+    applicationId: number;
     roleId: number;
 }
 
 export interface ListRolesRequest {
-    applicationId: string;
+    applicationId: number;
     offset: number;
     limit: number;
 }
@@ -165,7 +165,7 @@ export interface ListUserConsentsRequest {
 }
 
 export interface ListUserRolesRequest {
-    applicationId: string;
+    applicationId: number;
     userId: number;
 }
 
@@ -179,13 +179,13 @@ export interface ListUsersRequest {
 }
 
 export interface RevokePermissionFromRoleRequest {
-    applicationId: string;
+    applicationId: number;
     roleId: number;
     permissionId: number;
 }
 
 export interface RevokeRoleFromUserRequest {
-    applicationId: string;
+    applicationId: number;
     userId: number;
     roleId: number;
 }
@@ -196,7 +196,7 @@ export interface RevokeUserConsentRequest {
 }
 
 export interface UpdateApplicationOperationRequest {
-    applicationId: string;
+    applicationId: number;
     updateApplicationRequest: UpdateApplicationRequest;
 }
 
@@ -214,7 +214,7 @@ export interface UpdateClientRequest {
 export interface DefaultApiInterface {
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} roleId Role ID
      * @param {number} permissionId Permission ID
      * @param {*} [options] Override http request option.
@@ -235,7 +235,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} userId User ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
@@ -294,7 +294,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {CreatePermissionRequest} createPermissionRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -314,7 +314,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {CreateRoleRequest} createRoleRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -334,7 +334,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID (URI)
+     * @param {number} applicationId Application ID (URI)
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApiInterface
@@ -372,7 +372,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} permissionId Permission ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -392,7 +392,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -412,7 +412,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID (URI)
+     * @param {number} applicationId Application ID (URI)
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApiInterface
@@ -563,7 +563,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} offset
      * @param {number} limit
      * @param {*} [options] Override http request option.
@@ -584,7 +584,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -604,7 +604,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} offset
      * @param {number} limit
      * @param {*} [options] Override http request option.
@@ -646,7 +646,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} userId User ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -721,7 +721,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} roleId Role ID
      * @param {number} permissionId Permission ID
      * @param {*} [options] Override http request option.
@@ -742,7 +742,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID
+     * @param {number} applicationId Application ID
      * @param {number} userId User ID
      * @param {number} roleId Role ID
      * @param {*} [options] Override http request option.
@@ -783,7 +783,7 @@ export interface DefaultApiInterface {
 
     /**
      *
-     * @param {string} applicationId Application ID (URI)
+     * @param {number} applicationId Application ID (URI)
      * @param {UpdateApplicationRequest} updateApplicationRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}

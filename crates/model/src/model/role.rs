@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 pub struct Role {
     pub id: i64,
 
-    pub application_id: String,
+    pub application_id: i64,
 
     pub name: String,
 
