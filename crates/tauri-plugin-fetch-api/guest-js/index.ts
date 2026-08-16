@@ -7,6 +7,9 @@ type StreamFrame =
   | { type: 'Error'; payload: string }
   | { type: 'Complete' };
 
+const TEXT_DECODER = new TextDecoder();
+const EMPTY_CHUNK = new Uint8Array(0);
+
 interface InitStreamResponse {
   stream_id: string;
 }
@@ -30,7 +33,10 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
     path = input.toString();
   }
 
+  const requestMethod = method || 'GET';
+
   if (signal?.aborted) {
+    console.warn(`Abort error triggered early before initializing stream context for: "${path}"`);
     throw new DOMException('The user aborted a request.', 'AbortError');
   }
 
@@ -57,7 +63,7 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
   }
 
   const payload = {
-    method: method || 'GET',
+    method: requestMethod,
     uri: path,
     headers: Array.from(normalizedHeaders.entries()),
     response_channel: responseChannel
@@ -65,7 +71,6 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
 
   // The Promise executor function is now strictly synchronous to prevent unhandled rejection leaks
   return new Promise<Response>((resolve, reject) => {
-
     // Wire up the multiplexed message listener before invoking the backend command
     responseChannel.onmessage = (frame: StreamFrame) => {
       switch (frame.type) {
@@ -84,6 +89,8 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
           if (streamController) {
             // Convert numerical array payload bytes back into target buffer elements
             streamController.enqueue(new Uint8Array(frame.payload));
+          } else {
+            console.error(`[Channel Message] Missed target runtime: Stream controller uninitialized during data packet processing`);
           }
           break;
 
@@ -101,7 +108,8 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
           if (streamController) {
             try {
               streamController.close();
-            } catch (_) {
+            } catch (err) {
+              console.debug(`[Channel Message] Exception suppressed during stream closure handling:`, err);
               // The controller might already be in an error state or closed
             }
           }
@@ -115,7 +123,7 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
           try {
             await invoke('plugin:fetch-api|cancel_plugin_stream', { streamId: registeredStreamId });
           } catch (e) {
-            console.error('Failed to notify stream cancel route:', e);
+            console.error('[Abort Trigger] Failed to notify stream cancel route:', e);
           }
         }
 
@@ -135,7 +143,8 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
         const rawHeadBytes = await invoke<ArrayBuffer>('plugin:fetch-api|init_plugin_stream', { request: payload });
 
         // Decode the binary response buffer into a string and extract the stream identification token
-        const headString = new TextDecoder().decode(rawHeadBytes);
+        const headString = TEXT_DECODER.decode(rawHeadBytes);
+
         const initHead: InitStreamResponse = JSON.parse(headString);
         registeredStreamId = initHead.stream_id;
 
@@ -150,9 +159,10 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
           const uploadReader = ensureReadableStream(body).getReader();
 
           try {
+            let iterationIndex = 0;
             while (true) {
               const { value, done } = await uploadReader.read();
-              const chunkData = value ? Array.from(value) : [];
+              const chunkData = value ?? EMPTY_CHUNK;
 
               // Map parameters back to standard camelCase arguments expected by the Tauri command macro
               await invoke('plugin:fetch-api|upload_plugin_chunk', {
@@ -161,10 +171,13 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
                 isEof: done
               });
 
-              if (done || signal?.aborted) break;
+              if (done || signal?.aborted) {
+                break;
+              }
+              iterationIndex++;
             }
           } catch (uploadError) {
-            console.error('upload tracking loop broken:', uploadError);
+            console.error('[Async Orchestrator] [Upload Loop] Error broken inside core processing streaming execution track:', uploadError);
             await invoke('plugin:fetch-api|upload_plugin_chunk', { streamId: registeredStreamId, chunk: [], isEof: true });
           } finally {
             uploadReader.releaseLock();
@@ -175,6 +188,7 @@ export async function fetch(input: RequestInfo | URL, init?: RequestInit): Promi
         }
 
       } catch (initError) {
+        console.error(`[Async Orchestrator] Initialization lifecycle failure block captured:`, initError);
         if (!isResponseResolved) {
           reject(initError);
         }

@@ -29,7 +29,7 @@
 			<p class="text-center text-gray-600 dark:text-gray-400">
 				{m.home_signed_in_message()}
 			</p>
-			<button class="btn danger" onclick={onSignOut}>{m.home_sign_out()}</button
+			<button type="button" class="btn danger" onclick={onSignOut}>{m.home_sign_out()}</button
 			>
 		</div>
 	</div>

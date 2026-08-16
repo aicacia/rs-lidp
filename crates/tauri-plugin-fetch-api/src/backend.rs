@@ -93,17 +93,15 @@ async fn upload_plugin_chunk(
 
     if let Some(tx) = sender {
         if !chunk.is_empty() {
-            // Forward chunk slice straight to the channel consumer mapping to Axum/Hyper
-            let _ = tx.send(Ok(chunk)).await;
+            tx.send(Ok(chunk)).await.map_err(|e| e.to_string())?;
         }
+
         if is_eof {
-            // Unregister sender cleanly upon reaching EOF to close the reading boundary
             let mut senders = state.upload_senders.lock().await;
             senders.remove(&stream_id);
-            let mut active = state.active_streams.lock().await;
-            active.remove(&stream_id);
         }
     }
+
     Ok(())
 }
 

@@ -377,7 +377,7 @@ where
                     .map_err(ErrorResponse::from)?
                     .ok_or_else(|| {
                         ErrorResponse::new(ErrorCode::InvalidClient)
-                            .with_description("client not found")
+                            .with_description(format!("client {} not found", request.client_id))
                     })?;
                 self.validate_grant_type(&client, GrantType::Password)?;
                 self.authenticate_client_for_token_endpoint(&client, client_auth.as_ref())?;
@@ -389,7 +389,7 @@ where
                     .map_err(ErrorResponse::from)?
                     .ok_or_else(|| {
                         ErrorResponse::new(ErrorCode::InvalidGrant)
-                            .with_description("user not found")
+                            .with_description(format!("user {} not found", request.username))
                     })?;
 
                 let user_password = self

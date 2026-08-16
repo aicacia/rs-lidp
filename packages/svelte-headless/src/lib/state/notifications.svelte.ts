@@ -15,7 +15,7 @@ export interface CreateNotificationsOptions<T = DefaultNotificationType> {
 
 export function createNotifications<T = DefaultNotificationType>({
     generateId = unsafeId,
-    defaultType = "info" as T,
+    defaultType = "error" as T,
 }: CreateNotificationsOptions<T> = {}) {
     const notifications = $state<Notification<T>[]>([]);
 

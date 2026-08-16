@@ -4,10 +4,12 @@ use axum::Router;
 use db::open_database;
 use lidp_server::{AppConfig, RouterState};
 use service::{
+    bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{
-        KeyService, LibSqlClientRepo, LibSqlKeyRepo, LibSqlOAuth2AuthorizationCodeRepo,
-        LibSqlOAuth2UserConsentRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
+        KeyService, LibSqlApplicationRepo, LibSqlClientRepo, LibSqlKeyRepo,
+        LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
+        LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
     },
 };
 
@@ -28,6 +30,25 @@ pub async fn init(app_config: Arc<AppConfig>) -> io::Result<Router> {
         PrivateKeyKeyringRepo::new(&app_config.oauth2.issuer),
         app_config.key_namespace.clone(),
     ));
+
+    let bootstrap_service = BootstrapService::new(
+        LibSqlApplicationRepo::new(database.clone()),
+        LibSqlClientRepo::new(database.clone(), key_service.clone()),
+        LibSqlUserRepo::new(
+            database.clone(),
+            key_service.clone(),
+            app_config.password.clone(),
+        ),
+        LibSqlRoleRepo::new(database.clone()),
+        LibSqlPermissionRepo::new(database.clone()),
+        key_service.clone(),
+        app_config.bootstrap.clone(),
+    );
+
+    bootstrap_service
+        .ensure_system_baseline()
+        .await
+        .map_err(io::Error::other)?;
 
     let oauth2_config = app_config.oauth2.clone();
     let oauth2_service = Arc::new(OAuth2Service::new(
