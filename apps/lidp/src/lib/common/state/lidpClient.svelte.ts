@@ -6,14 +6,16 @@ import {
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { page } from "$app/state";
-import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
+import { afterSigninRedirect } from "./afterSigninRedirect.svelte";
 import { createStorage } from "@aicacia/svelte-headless";
 import { env } from "$env/dynamic/public";
 import { getOidcClient } from "./oidc.svelte";
+import { isTauri } from "@tauri-apps/api/core";
+import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 
 const lidpApiUrl = createStorage<string | null>(
     "lidp-api-url",
-    env.PUBLIC_LIDP_BASE_URL ?? null,
+    (isTauri() ? 'lidp://app' : env.PUBLIC_LIDP_BASE_URL) ?? null,
 );
 let lidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"));
 
@@ -31,7 +33,7 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
         {
             post: async (context) => {
                 if (context.response.status === 401) {
-                    setAfterSigninRedirectPathFromURL(page.url);
+                    afterSigninRedirect.setURL(page.url);
                     await goto(resolve("/signin"));
                 }
                 return context.response;
@@ -39,8 +41,7 @@ export const defaultConfigurationParameters: ConfigurationParameters = {
         },
     ],
     get fetchApi() {
-        // TODO: create a IPC fetch API for tauri);
-        return lidpApiIsNative ? fetch : fetch;
+        return lidpApiIsNative ? tauriFetch : fetch;
     },
     accessToken(_name, _scopes) {
         return getOidcClient().getStoredTokenResponse().access_token;

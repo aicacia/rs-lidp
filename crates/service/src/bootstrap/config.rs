@@ -4,8 +4,9 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, serde::Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BootstrapConfig {
     pub is_master: bool,

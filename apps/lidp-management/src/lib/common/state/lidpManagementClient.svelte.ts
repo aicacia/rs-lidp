@@ -8,7 +8,7 @@ import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { env } from "$env/dynamic/public";
-import { setAfterSigninRedirectPathFromURL } from "./afterSignInRedirectPath.svelte";
+import { afterSigninRedirect } from "./afterSigninRedirect.svelte";
 import { getOidcClient } from "./oidc.svelte";
 
 const lidpManagementApiUrl = createStorage<string | null>(
@@ -30,7 +30,7 @@ const defaultConfigurationParameters: ConfigurationParameters = {
         {
             post: async (context) => {
                 if (context.response.status === 401) {
-                    setAfterSigninRedirectPathFromURL(page.url);
+                    afterSigninRedirect.setURL(page.url);
                     await goto(resolve("/signin"));
                 }
                 return context.response;

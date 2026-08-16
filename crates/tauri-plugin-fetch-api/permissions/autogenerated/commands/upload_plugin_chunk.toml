@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-upload-plugin-chunk"
+description = "Enables the upload_plugin_chunk command without any pre-configured scope."
+commands.allow = ["upload_plugin_chunk"]
+
+[[permission]]
+identifier = "deny-upload-plugin-chunk"
+description = "Denies the upload_plugin_chunk command without any pre-configured scope."
+commands.deny = ["upload_plugin_chunk"]

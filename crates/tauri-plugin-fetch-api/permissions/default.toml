@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = ["allow-cancel-plugin-stream", "allow-init-plugin-stream", "allow-upload-plugin-chunk"]

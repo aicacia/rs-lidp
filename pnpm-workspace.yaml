@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/**/example"
+  - "crates/tauri-plugin-fetch-api"
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:

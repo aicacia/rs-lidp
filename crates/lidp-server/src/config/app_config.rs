@@ -2,10 +2,10 @@ use std::path::Path;
 
 use api::{Environment, ServerConfig};
 use db::DatabaseConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use service::{PasswordConfig, bootstrap::BootstrapConfig, oauth2::OAuth2Config};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     pub server: ServerConfig,

@@ -10,7 +10,7 @@ use model::contract::{
     AuthorizationServerMetadata, CodeChallengeMethod, GrantType, ResponseMode, ResponseType,
     TokenEndpointAuthMethod,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_ISSUER: &str = "https://unified-api.localhost:1337/lidp";
 pub const DEFAULT_REQUIRE_PKCE: bool = true;
@@ -20,7 +20,7 @@ pub const DEFAULT_AUTHORIZATION_CODE_TTL_SECS: u64 = 600;
 pub const DEFAULT_DEVICE_CODE_TTL_SECS: i64 = 600;
 pub const DEFAULT_DEVICE_POLL_INTERVAL_SECS: i64 = 5;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OAuth2Config {
     pub issuer: String,

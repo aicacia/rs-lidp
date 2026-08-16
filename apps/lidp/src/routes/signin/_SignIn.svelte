@@ -22,7 +22,7 @@
 <script lang="ts">
     import { createForm } from "@aicacia/svelte-forms";
     import Issues from "$lib/common/components/Issues.svelte";
-    import { afterSigninRedirect } from "$lib/common/state/afterSignInRedirectPath.svelte";
+    import { afterSigninRedirect } from "$lib/common/state/afterSigninRedirect.svelte";
     import { lidpApi } from "$lib/common/state/lidpClient.svelte";
     import { isTauri } from "@tauri-apps/api/core";
     import { getOidcClient } from "$lib/common/state/oidc.svelte";
@@ -61,7 +61,7 @@
             expires_in: token.expiresIn ?? undefined,
         });
 
-        afterSigninRedirect();
+        await afterSigninRedirect.onReturn();
     }
 </script>
 

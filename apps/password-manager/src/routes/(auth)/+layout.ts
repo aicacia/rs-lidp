@@ -1,0 +1,24 @@
+import { redirect } from "@sveltejs/kit";
+import { resolve } from "$app/paths";
+import { afterSigninRedirect } from "$lib/common/state/afterSigninRedirect.svelte";
+import { getOidcClient } from "$lib/common/state/oidc.svelte";
+import type { LayoutLoad } from "./$types";
+
+export const load: LayoutLoad = async (event) => {
+    await event.parent();
+
+    try {
+        const oidcClient = getOidcClient();
+        const currentUserInfo = await oidcClient.getUserInfo();
+
+        if (currentUserInfo) {
+            return {
+                userInfo: currentUserInfo,
+            };
+        }
+    } catch (error) {
+      console.error(error);
+      afterSigninRedirect.setURL(event.url);
+        redirect(302, resolve("/signin"));
+    }
+};

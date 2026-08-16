@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-init-plugin-stream"
+description = "Enables the init_plugin_stream command without any pre-configured scope."
+commands.allow = ["init_plugin_stream"]
+
+[[permission]]
+identifier = "deny-init-plugin-stream"
+description = "Denies the init_plugin_stream command without any pre-configured scope."
+commands.deny = ["init_plugin_stream"]

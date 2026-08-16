@@ -20,8 +20,14 @@ export function createReturnTo({ id, goto }: ReturnToOptions) {
         const returnToPath = returnTo.item;
 
         if (returnToPath) {
-            returnTo.item = null;
+          returnTo.item = null;
+          try {
             await goto(returnToPath);
+          } catch (error) {
+            throw error;
+          } finally {
+            returnTo.item = returnToPath;
+          }
         }
     }
 

@@ -1,6 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import { resolve } from "$app/paths";
-import { setAfterSigninRedirectPathFromURL } from "$lib/common/state/afterSignInRedirectPath.svelte";
+import { afterSigninRedirect } from "$lib/common/state/afterSigninRedirect.svelte";
 import { getOidcClient } from "$lib/common/state/oidc.svelte";
 import type { LayoutLoad } from "./$types";
 
@@ -18,7 +18,7 @@ export const load: LayoutLoad = async (event) => {
         }
     } catch (error) {
         console.error(error);
-        setAfterSigninRedirectPathFromURL(event.url);
+        afterSigninRedirect.setURL(event.url);
         redirect(302, resolve("/signin"));
     }
 };

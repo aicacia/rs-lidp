@@ -1,5 +1,5 @@
 [package]
-name = "lidp"
+name = "lidp-unified"
 description = "Local First OIDC / OAuth 2.x implementation"
 repository = "https://github.com/aicacia/rs-oauth"
 rust-version = "1.97"
@@ -20,7 +20,7 @@ completions = ["cli/completions"]
 swagger-ui = ["utoipa-swagger-ui"]
 
 [lib]
-name = "lidp"
+name = "lidp_unified"
 
 [dependencies]
 # CLI
@@ -107,6 +107,8 @@ members = [
   "crates/model",
   "crates/lidp-server",
   "crates/service",
+  "crates/tauri-plugin-fetch-api",
+  "apps/lidp/src-tauri"
 ]
 
 [workspace.package]

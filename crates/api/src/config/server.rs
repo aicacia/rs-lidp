@@ -1,8 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ServerConfig {
     pub host: IpAddr,
