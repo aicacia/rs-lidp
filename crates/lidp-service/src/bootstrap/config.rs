@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct BootstrapConfig {
     pub is_master: bool,
+    pub web: bool,
+    pub desktop: bool,
     pub lidp_url: String,
     pub lidp_management_url: String,
     pub admin_username: String,
@@ -21,6 +23,8 @@ impl Default for BootstrapConfig {
     fn default() -> Self {
         Self {
             is_master: false,
+            web: false,
+            desktop: false,
             lidp_url: "https://lidp.localhost:1337".to_string(),
             lidp_management_url: "https://lidp-management.localhost:1337".to_string(),
             admin_username: "admin".to_string(),

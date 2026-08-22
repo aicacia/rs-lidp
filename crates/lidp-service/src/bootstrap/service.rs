@@ -70,43 +70,46 @@ where
             .ensure_application("Local IdP".to_string(), "lidp".to_string())
             .await?;
 
-        let lidp_web_client = self
-            .ensure_client(
-                lidp_application.id,
-                "lidp-web".to_string(),
-                "Local IdP Web".to_string(),
-                self.config.lidp_url.clone(),
-                ClientProfile::Web,
-            )
-            .await?;
-        let _lidp_web_client_key = self
-            .ensure_active_key(
-                EntityType::Client,
-                lidp_web_client.id,
-                "Local IdP Web",
-                lidp_web_client.client_secret.as_str(),
-                true,
-            )
-            .await?;
-
-        let lidp_desktop_client = self
-            .ensure_client(
-                lidp_application.id,
-                "lidp-desktop".to_string(),
-                "Local IdP Desktop".to_string(),
-                "lidp://app".to_string(),
-                ClientProfile::Native,
-            )
-            .await?;
-        let _lidp_desktop_client_key = self
-            .ensure_active_key(
-                EntityType::Client,
-                lidp_desktop_client.id,
-                "Local IdP Desktop",
-                lidp_desktop_client.client_secret.as_str(),
-                true,
-            )
-            .await?;
+        if self.config.web {
+            let lidp_web_client = self
+                .ensure_client(
+                    lidp_application.id,
+                    "lidp-web".to_string(),
+                    "Local IdP Web".to_string(),
+                    self.config.lidp_url.clone(),
+                    ClientProfile::Web,
+                )
+                .await?;
+            let _lidp_web_client_key = self
+                .ensure_active_key(
+                    EntityType::Client,
+                    lidp_web_client.id,
+                    "Local IdP Web",
+                    lidp_web_client.client_secret.as_str(),
+                    true,
+                )
+                .await?;
+        }
+        if self.config.desktop {
+            let lidp_desktop_client = self
+                .ensure_client(
+                    lidp_application.id,
+                    "lidp-desktop".to_string(),
+                    "Local IdP Desktop".to_string(),
+                    "lidp://app".to_string(),
+                    ClientProfile::Native,
+                )
+                .await?;
+            let _lidp_desktop_client_key = self
+                .ensure_active_key(
+                    EntityType::Client,
+                    lidp_desktop_client.id,
+                    "Local IdP Desktop",
+                    lidp_desktop_client.client_secret.as_str(),
+                    true,
+                )
+                .await?;
+        }
 
         let lidp_management_application = self
             .ensure_application(
@@ -115,43 +118,47 @@ where
             )
             .await?;
 
-        let lidp_management_web_client = self
-            .ensure_client(
-                lidp_management_application.id,
-                "lidp-management-web".to_string(),
-                "Local IdP Management Web".to_string(),
-                self.config.lidp_management_url.clone(),
-                ClientProfile::Web,
-            )
-            .await?;
-        let _idp_management_web_client_key = self
-            .ensure_active_key(
-                EntityType::Client,
-                lidp_management_web_client.id,
-                "Local IdP Management Web",
-                lidp_management_web_client.client_secret.as_str(),
-                true,
-            )
-            .await?;
+        if self.config.web {
+            let lidp_management_web_client = self
+                .ensure_client(
+                    lidp_management_application.id,
+                    "lidp-management-web".to_string(),
+                    "Local IdP Management Web".to_string(),
+                    self.config.lidp_management_url.clone(),
+                    ClientProfile::Web,
+                )
+                .await?;
+            let _idp_management_web_client_key = self
+                .ensure_active_key(
+                    EntityType::Client,
+                    lidp_management_web_client.id,
+                    "Local IdP Management Web",
+                    lidp_management_web_client.client_secret.as_str(),
+                    true,
+                )
+                .await?;
+        }
 
-        let lidp_management_desktop_client = self
-            .ensure_client(
-                lidp_management_application.id,
-                "lidp-management-desktop".to_string(),
-                "Local IdP Management Desktop".to_string(),
-                "lidp-management://app".to_string(),
-                ClientProfile::Native,
-            )
-            .await?;
-        let _lidp_management_desktop_client_key = self
-            .ensure_active_key(
-                EntityType::Client,
-                lidp_management_desktop_client.id,
-                "Local IdP Management Desktop",
-                lidp_management_desktop_client.client_secret.as_str(),
-                true,
-            )
-            .await?;
+        if self.config.desktop {
+            let lidp_management_desktop_client = self
+                .ensure_client(
+                    lidp_management_application.id,
+                    "lidp-management-desktop".to_string(),
+                    "Local IdP Management Desktop".to_string(),
+                    "lidp-management://app".to_string(),
+                    ClientProfile::Native,
+                )
+                .await?;
+            let _lidp_management_desktop_client_key = self
+                .ensure_active_key(
+                    EntityType::Client,
+                    lidp_management_desktop_client.id,
+                    "Local IdP Management Desktop",
+                    lidp_management_desktop_client.client_secret.as_str(),
+                    true,
+                )
+                .await?;
+        }
 
         let admin_user = self.ensure_admin_user().await?;
         self.ensure_management_admin_access(admin_user.id, lidp_management_application.id)

@@ -23,6 +23,7 @@ import {
 
 /**
  * Standard OAuth 2.0 error response structure (RFC 6749 Section 5.2).
+ * should match fields from crates/model/src/contract/error_response.rs
  * @export
  * @interface ErrorResponse
  */

@@ -65,4 +65,4 @@ lidp-management:
     pnpx portless lidp-management-api cargo run -p lidp-management-server -- -c config.yaml
 
 unified:
-    pnpx portless unified-api cargo run
+    pnpx portless unified cargo run

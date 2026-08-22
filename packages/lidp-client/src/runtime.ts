@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-export const BASE_PATH = "https://unified-api.localhost:1337/lidp".replace(
+export const BASE_PATH = "https://unified.localhost:1337/lidp".replace(
     /\/+$/,
     "",
 );
