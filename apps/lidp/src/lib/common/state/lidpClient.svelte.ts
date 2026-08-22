@@ -15,7 +15,7 @@ import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 
 const lidpApiUrl = createStorage<string | null>(
     "lidp-api-url",
-    (isTauri() ? 'lidp://app' : env.PUBLIC_LIDP_BASE_URL) ?? null,
+    (isTauri() ? "lidp://app" : env.PUBLIC_LIDP_BASE_URL) ?? null,
 );
 let lidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"));
 

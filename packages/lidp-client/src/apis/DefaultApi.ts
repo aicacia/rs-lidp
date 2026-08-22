@@ -1596,7 +1596,7 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
             );
         }
 
-      let urlPath = `/oauth2/token`;
+        let urlPath = `/oauth2/token`;
 
         const response = await this.request(
             {

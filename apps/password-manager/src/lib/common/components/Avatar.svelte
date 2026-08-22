@@ -1,8 +1,8 @@
 <script lang="ts" module>
-	export interface AvatarProps {
-		src: string;
-		alt?: string | null;
-	}
+export interface AvatarProps {
+    src: string;
+    alt?: string | null;
+}
 </script>
 
 <script lang="ts">

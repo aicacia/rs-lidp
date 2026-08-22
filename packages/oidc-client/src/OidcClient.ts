@@ -22,6 +22,7 @@ export type OidcClientEvents = {
 
 export type OidcClientOptions = {
     clientConfig: OidcClientConfig;
+    disableNativeRequests?: boolean;
     fetch?: Fetch;
 };
 
@@ -84,6 +85,7 @@ export class OidcClient<
     UserInfo extends OidcUserInfo = OidcUserInfo,
 > extends EventEmitter<OidcClientEvents> {
     private readonly config: OidcClientConfig;
+    private readonly disableNativeRequests: boolean;
     private readonly fetch: Fetch;
 
     private oidcConfigPromise: Promise<OidcConfiguration> | null = null;
@@ -97,6 +99,7 @@ export class OidcClient<
         this.config = OidcClient.validateConfig(options.clientConfig);
         this.pkceStoragePrefix = `${PKCE_STORAGE_PREFIX}:${this.config.authority}`;
         this.tokenStoragePrefix = `${TOKEN_STORAGE_PREFIX}:${this.config.authority}`;
+        this.disableNativeRequests = options.disableNativeRequests ?? false;
         this.fetch = this.config.requestTimeoutInSeconds
             ? createFetchWithTimeout(
                   this.config.requestTimeoutInSeconds * 1000,
@@ -370,7 +373,8 @@ export class OidcClient<
 
         let userInfoResponse: Response;
         try {
-            const isNative = isNativeProtocol(userInfoUrl);
+            const isNative =
+                !this.disableNativeRequests && isNativeProtocol(userInfoUrl);
             if (isNative) {
                 userInfoResponse = await nativeFetch(userInfoUrl, {
                     method: "GET",
@@ -468,7 +472,8 @@ export class OidcClient<
             typeof tokenEndpointUrlOrString === "string"
                 ? new URL(tokenEndpointUrlOrString)
                 : tokenEndpointUrlOrString;
-        const isNative = isNativeProtocol(tokenEndpointUrl);
+        const isNative =
+            !this.disableNativeRequests && isNativeProtocol(tokenEndpointUrl);
 
         if (isNative) {
             for (const [key, value] of body.entries()) {
@@ -658,7 +663,7 @@ export class OidcClient<
     private async fetchOidcConfiguration(): Promise<OidcConfiguration> {
         const urlString = `${this.config.authority}/.well-known/openid-configuration`;
         const url = new URL(urlString);
-        const isNative = isNativeProtocol(url);
+        const isNative = !this.disableNativeRequests && isNativeProtocol(url);
 
         if (isNative) {
             const response = await nativeFetch(url, {
@@ -767,7 +772,8 @@ export class OidcClient<
             );
         }
         const endpointUrl = new URL(endpointUrlString);
-        const isNative = isNativeProtocol(endpointUrl);
+        const isNative =
+            !this.disableNativeRequests && isNativeProtocol(endpointUrl);
 
         if (isNative) {
             const registrationMetadata = this.getRegistrationMetadata();

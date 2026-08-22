@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SignIn from "./_SignIn.svelte";
+import SignIn from "./_SignIn.svelte";
 </script>
 
 <div class="flex grow flex-col items-center justify-center">

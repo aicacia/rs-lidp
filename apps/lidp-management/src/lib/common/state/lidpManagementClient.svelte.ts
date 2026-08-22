@@ -38,7 +38,7 @@ const defaultConfigurationParameters: ConfigurationParameters = {
         },
     ],
     accessToken() {
-      return getOidcClient().getStoredTokenResponse().access_token;
+        return getOidcClient().getStoredTokenResponse().access_token;
     },
     get basePath() {
         return lidpManagementApiUrl.item;

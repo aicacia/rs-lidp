@@ -1,11 +1,11 @@
 <script lang="ts">
-    import { getOidcClient } from "$lib/common/state/oidc.svelte";
+import { getOidcClient } from "$lib/common/state/oidc.svelte";
 
-    async function onSubmit(event: Event) {
-        event.preventDefault();
+async function onSubmit(event: Event) {
+    event.preventDefault();
 
-        await getOidcClient().signin();
-    }
+    await getOidcClient().signin();
+}
 </script>
 
 <form onsubmit={onSubmit} class="flex flex-col">

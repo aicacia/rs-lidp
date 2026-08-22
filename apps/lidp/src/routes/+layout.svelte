@@ -8,7 +8,10 @@
 	import { resolve } from "$app/paths";
 	import favicon from "$lib/assets/favicon.svg";
 	import Notifications from "$lib/common/components/Notifications.svelte";
+	import {  handleDeepLink } from "$lib/common/util/handleDeepLink";
 	import type { LayoutProps } from "./$types";
+	import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+	import type { UnlistenFn } from '@tauri-apps/api/event';
 
 	let { children }: LayoutProps = $props();
 
@@ -23,6 +26,18 @@
 
 	onMount(() => {
 		document.body.classList.add("hydrated");
+
+		let onOpenUrlUnlistenFn: UnlistenFn | undefined;
+
+		onOpenUrl(handleDeepLink).then((unlisten) => {
+			onOpenUrlUnlistenFn = unlisten;
+		});
+
+		return () => {
+			if (onOpenUrlUnlistenFn) {
+				onOpenUrlUnlistenFn();
+			}
+		};
 	});
 </script>
 

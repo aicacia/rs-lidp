@@ -3,6 +3,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { env } from "$env/dynamic/public";
 import icon256x256Png from "$lib/assets/icon256x256.png";
 import { getLidpApiUrl } from "./lidpClient.svelte";
+import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 
 const CLIENT_ID = isTauri() ? "lidp-desktop" : "lidp-web";
 
@@ -33,6 +34,8 @@ const oidcClient = $derived.by(
                     refreshTokenExpiry: 604800,
                 },
             },
+            fetch: isTauri() ? tauriFetch : fetch,
+            disableNativeRequests: true,
         }),
 );
 

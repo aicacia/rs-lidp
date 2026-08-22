@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { fly } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
-	import { notifications } from '$lib/common/state/notifications.svelte';
-	import Notification from './Notification.svelte';
+import { fly } from "svelte/transition";
+import { flip } from "svelte/animate";
+import { notifications } from "$lib/common/state/notifications.svelte";
+import Notification from "./Notification.svelte";
 </script>
 
 <div class="fixed top-0 left-1/2 z-100000 -translate-x-1/2">

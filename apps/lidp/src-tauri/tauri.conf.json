@@ -36,5 +36,29 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }
-  }
+  },
+	"plugins": {
+		"deep-link": {
+			"mobile": [
+				{
+					"scheme": ["lidp"],
+					"appLink": false
+				}
+			],
+			"desktop": {
+				"schemes": ["lidp"]
+			}
+		},
+		"cli": {
+			"description": "A Tauri app with CLI arguments",
+			"args": [
+				{
+					"name": "config",
+					"short": "c",
+					"takesValue": true,
+					"description": "The config path to use"
+				}
+			]
+		}
+	}
 }

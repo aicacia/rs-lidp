@@ -27,7 +27,6 @@
     import { isTauri } from "@tauri-apps/api/core";
     import { getOidcClient } from "$lib/common/state/oidc.svelte";
     import { notifications } from "$lib/common/state/notifications.svelte";
-    import { ResponseError } from "@aicacia/lidp-client";
 
     const form = createForm(SignInSchema(), {
         username: "",

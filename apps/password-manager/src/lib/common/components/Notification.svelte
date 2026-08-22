@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	interface Props {
-		notification: Notification;
-	}
+interface Props {
+    notification: Notification;
+}
 </script>
 
 <script lang="ts">

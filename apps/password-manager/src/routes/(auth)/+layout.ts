@@ -17,8 +17,8 @@ export const load: LayoutLoad = async (event) => {
             };
         }
     } catch (error) {
-      console.error(error);
-      afterSigninRedirect.setURL(event.url);
+        console.error(error);
+        afterSigninRedirect.setURL(event.url);
         redirect(302, resolve("/signin"));
     }
 };

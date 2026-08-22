@@ -3,9 +3,10 @@ import { createStorage } from "./storage.svelte";
 export type ReturnToOptions = {
     id: string;
     goto: (path: string) => Promise<void>;
+    defaultPath?: string;
 };
 
-export function createReturnTo({ id, goto }: ReturnToOptions) {
+export function createReturnTo({ id, goto, defaultPath }: ReturnToOptions) {
     const returnTo = createStorage<string | null>(`return-to:${id}`, null);
 
     function setURL(url: URL) {
@@ -17,17 +18,17 @@ export function createReturnTo({ id, goto }: ReturnToOptions) {
     }
 
     async function onReturn() {
-        const returnToPath = returnTo.item;
+        const returnToPath = returnTo.item ?? defaultPath;
 
         if (returnToPath) {
-          returnTo.item = null;
-          try {
-            await goto(returnToPath);
-          } catch (error) {
-            throw error;
-          } finally {
-            returnTo.item = returnToPath;
-          }
+            returnTo.item = null;
+            try {
+                await goto(returnToPath);
+            } catch (error) {
+                throw error;
+            } finally {
+                returnTo.item = returnToPath;
+            }
         }
     }
 

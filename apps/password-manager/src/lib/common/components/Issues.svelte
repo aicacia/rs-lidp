@@ -1,11 +1,11 @@
 <script lang="ts" module>
-	export interface IssueLike {
-		message: string;
-	}
+export interface IssueLike {
+    message: string;
+}
 
-	export interface IssuesProps {
-		issues: readonly IssueLike[];
-	}
+export interface IssuesProps {
+    issues: readonly IssueLike[];
+}
 </script>
 
 <script lang="ts">
