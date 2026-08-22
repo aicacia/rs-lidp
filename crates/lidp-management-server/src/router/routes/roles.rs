@@ -2,9 +2,9 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use model::contract::{ErrorCode, ErrorResponse};
+use lidp_model::contract::{ErrorCode, ErrorResponse};
+use lidp_service::management::ManagementService;
 use serde::{Deserialize, Serialize};
-use service::management::ManagementService;
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
 
@@ -21,8 +21,8 @@ pub(crate) struct RoleResponse {
     pub updated_at: i64,
 }
 
-impl From<model::model::Role> for RoleResponse {
-    fn from(role: model::model::Role) -> Self {
+impl From<lidp_model::model::Role> for RoleResponse {
+    fn from(role: lidp_model::model::Role) -> Self {
         Self {
             id: role.id,
             application_id: role.application_id,

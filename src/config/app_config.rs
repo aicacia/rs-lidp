@@ -2,8 +2,8 @@ use std::path::Path;
 
 use api::{Environment, ServerConfig};
 use db::DatabaseConfig;
+use lidp_service::{PasswordConfig, bootstrap::BootstrapConfig, oauth2::OAuth2Config};
 use serde::Deserialize;
-use service::{PasswordConfig, bootstrap::BootstrapConfig, oauth2::OAuth2Config};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]

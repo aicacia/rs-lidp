@@ -3,7 +3,7 @@ use clap::Parser;
 use cli::{CliArgs, CliServerCommand, shutdown_signal};
 use db::{close_database, open_database};
 use env_logger::Env;
-use service::{
+use lidp_service::{
     bootstrap::BootstrapService,
     management::ManagementService,
     oauth2::OAuth2Service,
@@ -53,7 +53,7 @@ pub async fn run() -> io::Result<()> {
         io::Error::other(e)
     })?);
 
-    model::migrate::up(&database).await.map_err(|e| {
+    lidp_model::migrate::up(&database).await.map_err(|e| {
         log::error!("failed to run database migrations: {}", e);
         io::Error::other(e)
     })?;

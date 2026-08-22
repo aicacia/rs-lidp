@@ -2,7 +2,9 @@ use axum::{
     Json,
     extract::{Form, State},
 };
-use model::contract::{DeviceAuthorization, DeviceAuthorizationRequest, ErrorCode, ErrorResponse};
+use lidp_model::contract::{
+    DeviceAuthorization, DeviceAuthorizationRequest, ErrorCode, ErrorResponse,
+};
 
 use crate::router::RouterState;
 

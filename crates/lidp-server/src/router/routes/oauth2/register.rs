@@ -2,7 +2,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use model::contract::{ClientRegistration, ErrorResponse};
+use lidp_model::contract::{ClientRegistration, ErrorResponse};
 
 use crate::router::{RouterState, middleware::StandardAuthorization};
 

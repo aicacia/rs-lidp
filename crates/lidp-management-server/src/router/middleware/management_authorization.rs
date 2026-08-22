@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use http::{HeaderValue, header::AUTHORIZATION, request::Parts};
-use model::contract::{ErrorCode, ErrorResponse};
-use service::oauth2::{Principal, decode_jwt};
+use lidp_model::contract::{ErrorCode, ErrorResponse};
+use lidp_service::oauth2::{Principal, decode_jwt};
 
 use crate::RouterState;
 
@@ -28,7 +28,7 @@ where
         if let Some(authorization_header_value) = parts.headers.get(AUTHORIZATION) {
             let authorization_string = authorization_from_header(authorization_header_value)?;
             let (jwt_header, _) =
-                decode_jwt::<model::contract::StandardClaims>(authorization_string)?;
+                decode_jwt::<lidp_model::contract::StandardClaims>(authorization_string)?;
 
             let router_state = RouterState::from_ref(state);
             let principal = router_state

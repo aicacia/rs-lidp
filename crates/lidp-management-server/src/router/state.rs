@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use libsql::Database;
-use service::{
+use lidp_service::{
     management::ManagementService,
     oauth2::OAuth2Service,
     repo::{

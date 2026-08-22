@@ -4,7 +4,7 @@ use axum::{
     http::HeaderMap,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use model::contract::{ErrorResponse, OAuth2ClientAuth, TokenRequest, TokenResponse};
+use lidp_model::contract::{ErrorResponse, OAuth2ClientAuth, TokenRequest, TokenResponse};
 
 use crate::router::RouterState;
 
@@ -25,24 +25,24 @@ fn parse_basic_client_auth(headers: &HeaderMap) -> Result<Option<OAuth2ClientAut
     };
 
     let raw = value.to_str().map_err(|_| {
-        ErrorResponse::new(model::contract::ErrorCode::InvalidClient)
+        ErrorResponse::new(lidp_model::contract::ErrorCode::InvalidClient)
             .with_description("invalid authorization header encoding")
     })?;
 
     let Some(encoded) = raw.strip_prefix("Basic ") else {
         return Err(
-            ErrorResponse::new(model::contract::ErrorCode::InvalidClient)
+            ErrorResponse::new(lidp_model::contract::ErrorCode::InvalidClient)
                 .with_description("unsupported token endpoint authorization method"),
         );
     };
 
     let decoded = STANDARD.decode(encoded).map_err(|_| {
-        ErrorResponse::new(model::contract::ErrorCode::InvalidClient)
+        ErrorResponse::new(lidp_model::contract::ErrorCode::InvalidClient)
             .with_description("invalid basic authorization token")
     })?;
 
     let decoded = String::from_utf8(decoded).map_err(|_| {
-        ErrorResponse::new(model::contract::ErrorCode::InvalidClient)
+        ErrorResponse::new(lidp_model::contract::ErrorCode::InvalidClient)
             .with_description("invalid basic authorization token")
     })?;
 
@@ -52,7 +52,7 @@ fn parse_basic_client_auth(headers: &HeaderMap) -> Result<Option<OAuth2ClientAut
 
     if client_id.is_empty() {
         return Err(
-            ErrorResponse::new(model::contract::ErrorCode::InvalidClient)
+            ErrorResponse::new(lidp_model::contract::ErrorCode::InvalidClient)
                 .with_description("client_id is required in basic authorization"),
         );
     }

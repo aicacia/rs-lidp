@@ -1,5 +1,5 @@
 use axum::{Json, extract::State};
-use model::contract::{AuthorizationServerMetadata, ErrorResponse, Jwks};
+use lidp_model::contract::{AuthorizationServerMetadata, ErrorResponse, Jwks};
 
 use crate::router::RouterState;
 

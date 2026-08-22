@@ -2,7 +2,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use model::{
+use lidp_model::{
     contract::{EntityType, ErrorResponse, JwkPublic},
     model::Key,
 };

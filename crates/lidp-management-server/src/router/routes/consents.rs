@@ -2,7 +2,7 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use model::contract::{ErrorCode, ErrorResponse};
+use lidp_model::contract::{ErrorCode, ErrorResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
@@ -23,8 +23,8 @@ pub(crate) struct UserConsentResponse {
     pub updated_at: i64,
 }
 
-impl From<model::model::OAuth2UserConsent> for UserConsentResponse {
-    fn from(value: model::model::OAuth2UserConsent) -> Self {
+impl From<lidp_model::model::OAuth2UserConsent> for UserConsentResponse {
+    fn from(value: lidp_model::model::OAuth2UserConsent) -> Self {
         Self {
             id: value.id,
             user_id: value.user_id,

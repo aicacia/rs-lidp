@@ -2,7 +2,7 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use model::contract::{ErrorCode, ErrorResponse};
+use lidp_model::contract::{ErrorCode, ErrorResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};
@@ -22,8 +22,8 @@ pub(crate) struct PermissionResponse {
     pub updated_at: i64,
 }
 
-impl From<model::model::Permission> for PermissionResponse {
-    fn from(value: model::model::Permission) -> Self {
+impl From<lidp_model::model::Permission> for PermissionResponse {
+    fn from(value: lidp_model::model::Permission) -> Self {
         Self {
             id: value.id,
             application_id: value.application_id,

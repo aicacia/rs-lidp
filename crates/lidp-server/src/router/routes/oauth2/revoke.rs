@@ -1,5 +1,5 @@
 use axum::extract::{Form, State};
-use model::contract::{ErrorResponse, RevocationRequest};
+use lidp_model::contract::{ErrorResponse, RevocationRequest};
 
 use crate::router::RouterState;
 

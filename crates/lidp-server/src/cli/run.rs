@@ -3,7 +3,7 @@ use clap::Parser;
 use cli::{CliArgs, CliServerCommand, shutdown_signal};
 use db::{close_database, open_database};
 use env_logger::Env;
-use service::{
+use lidp_service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{

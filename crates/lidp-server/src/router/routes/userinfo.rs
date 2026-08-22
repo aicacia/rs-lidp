@@ -1,5 +1,5 @@
 use axum::{Json, extract::State};
-use model::contract::{EntityType, ErrorCode, ErrorResponse, UserInfo};
+use lidp_model::contract::{EntityType, ErrorCode, ErrorResponse, UserInfo};
 
 use crate::router::{RouterState, middleware::StandardAuthorization};
 

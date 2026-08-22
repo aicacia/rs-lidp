@@ -39,13 +39,13 @@ cli = { path = "../cli", default-features = false, features = [
 # Internal
 api = { path = "../api", default-features = false, features = [] }
 db = { path = "../db", default-features = false, features = ["migrate"] }
-model = { path = "../model", default-features = false, features = [
+lidp-model = { path = "../lidp-model", default-features = false, features = [
   "std",
   "utoipa",
   "axum",
   "migrate",
 ] }
-service = { path = "../service", default-features = false, features = ["std"] }
+lidp-service = { path = "../lidp-service", default-features = false, features = ["std"] }
 
 # Database
 libsql = { version = "0.9", default-features = false, features = [] }

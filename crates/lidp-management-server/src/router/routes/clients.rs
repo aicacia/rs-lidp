@@ -2,7 +2,7 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use model::contract::{ClientRegistration, ErrorResponse};
+use lidp_model::contract::{ClientRegistration, ErrorResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::router::{RouterState, middleware::ManagementAuthorization};

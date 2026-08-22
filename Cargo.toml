@@ -38,7 +38,7 @@ db = { path = "./crates/db", default-features = false, features = [
   "migrate",
   "remote",
 ] }
-model = { path = "./crates/model", default-features = false, features = [
+lidp-model = { path = "./crates/lidp-model", default-features = false, features = [
   "migrate",
 ] }
 lidp-server = { path = "./crates/lidp-server", default-features = false, features = [
@@ -47,7 +47,7 @@ lidp-server = { path = "./crates/lidp-server", default-features = false, feature
 lidp-management-server = { path = "./crates/lidp-management-server", default-features = false, features = [
   "remote",
 ] }
-service = { path = "./crates/service", default-features = false, features = [
+lidp-service = { path = "./crates/lidp-service", default-features = false, features = [
   "std",
 ] }
 
@@ -104,9 +104,9 @@ members = [
   "crates/api",
   "crates/key",
   "crates/lidp-management-server",
-  "crates/model",
+  "crates/lidp-model",
   "crates/lidp-server",
-  "crates/service",
+  "crates/lidp-service",
   "crates/tauri-plugin-fetch-api",
   "apps/lidp/src-tauri"
 ]

@@ -3,7 +3,9 @@ use axum::{
     extract::{Query, RawQuery, State},
     response::Redirect,
 };
-use model::contract::{AuthorizationCodeResponse, AuthorizationRequest, ErrorCode, ErrorResponse};
+use lidp_model::contract::{
+    AuthorizationCodeResponse, AuthorizationRequest, ErrorCode, ErrorResponse,
+};
 
 use crate::router::{RouterState, middleware::StandardAuthorization};
 

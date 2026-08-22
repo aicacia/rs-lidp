@@ -3,7 +3,7 @@ use std::{io, sync::Arc};
 use axum::Router;
 use db::open_database;
 use lidp_server::{AppConfig, RouterState};
-use service::{
+use lidp_service::{
     bootstrap::BootstrapService,
     oauth2::OAuth2Service,
     repo::{

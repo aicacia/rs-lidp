@@ -25,8 +25,8 @@ log = "0.4"
 tower-service = "0.3"
 axum = { version = "0.8" }
 
-service = { path = "../../../crates/service", default-features = false, features = ["std"] }
-model = { path = "../../../crates/model", default-features = false, features = ["std", "migrate"] }
+lidp-service = { path = "../../../crates/lidp-service", default-features = false, features = ["std"] }
+lidp-model = { path = "../../../crates/lidp-model", default-features = false, features = ["std", "migrate"] }
 db = { path = "../../../crates/db", default-features = false, features = ["migrate"] }
 lidp-server = { path = "../../../crates/lidp-server", default-features = false, features = [] }
 
