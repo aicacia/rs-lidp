@@ -60,12 +60,9 @@ pub fn run() {
 
             let _app_config = app::init_app_config(app.handle().clone(), config_path)?;
 
-            let app_handle = app.handle().clone();
-            let _async_handle = tauri::async_runtime::spawn(async move {
-                let router = app::init_router().await.expect("router must be initted");
-                app_handle.manage(Mutex::new(router));
-            });
+            let router = app::init_router()?;
 
+            app.handle().manage(Mutex::new(router));
             app.handle()
                 .plugin(tauri_plugin_fetch_api::init(app::request_handler))?;
 

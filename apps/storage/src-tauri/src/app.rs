@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, async_runtime::Mutex};
 use tauri_plugin_fetch_api::{Request, Response};
 use tower_service::Service;
 
-pub async fn init_router() -> io::Result<Router> {
+pub fn init_router() -> io::Result<Router> {
     let router_state = RouterState::new("storage://app");
 
     let openapi_router = storage_server::openapi_router(router_state, "");

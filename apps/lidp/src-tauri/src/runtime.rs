@@ -65,9 +65,8 @@ pub fn run() {
                 let database = app::init_datebase(app_handle.clone(), app_config.clone())
                     .await
                     .expect("database must be initted");
-                let router = app::init_router(app_config, database)
-                    .await
-                    .expect("router must be initted");
+                let router =
+                    app::init_router(app_config, database).expect("router must be initted");
 
                 app_handle.manage(Mutex::new(router));
             });
