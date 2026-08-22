@@ -1,7 +1,6 @@
 use api::serve;
 use clap::Parser;
 use cli::{CliArgs, CliServerCommand, shutdown_signal};
-use db::{close_database, open_database};
 use env_logger::Env;
 use std::{
     io,
@@ -38,12 +37,6 @@ pub async fn run() -> io::Result<()> {
 
     env_logger::Builder::from_env(Env::default().default_filter_or(&app_config.log_level)).init();
 
-    let database = open_database(&app_config.database).await.map_err(|e| {
-        log::error!("failed to create database pool: {}", e);
-        io::Error::other(e)
-    })?;
-
-    let database = Arc::new(database);
     let router_state = RouterState::new(&app_config.api_public_uri);
 
     let router = openapi_router(router_state, app_config.server.prefix())
@@ -88,11 +81,6 @@ pub async fn run() -> io::Result<()> {
         sleep(Duration::from_millis(100)).await;
       }
     }
-
-    close_database(&database).await.map_err(|e| {
-        log::error!("failed to close database pool: {}", e);
-        io::Error::other(e)
-    })?;
 
     Ok(())
 }

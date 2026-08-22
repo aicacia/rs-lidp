@@ -27,12 +27,10 @@ libsql = { version = "0.9", default-features = false, features = [] }
 
 lidp-service = { path = "../../../crates/lidp-service", default-features = false, features = ["std"] }
 lidp-model = { path = "../../../crates/lidp-model", default-features = false, features = ["std", "migrate"] }
-db = { path = "../../../crates/db", default-features = false, features = ["migrate"] }
 lidp-server = { path = "../../../crates/lidp-server", default-features = false, features = [] }
 
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
-tauri-plugin-cli = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-opener = { version = "2", default-features = false, features = [] }

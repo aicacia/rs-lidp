@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf, sync::Arc};
+use std::{fs, path::Path, sync::Arc};
 
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use storage_server::{AppConfig, RouterState};
@@ -6,7 +6,9 @@ use tauri::{AppHandle, Manager, async_runtime::Mutex};
 use tauri_plugin_fetch_api::{Request, Response};
 use tower_service::Service;
 
-pub fn init_router() -> io::Result<Router> {
+use crate::relay::LocalRelay;
+
+pub fn init_router() -> tauri::Result<Router> {
     let router_state = RouterState::new("storage://app");
 
     let openapi_router = storage_server::openapi_router(router_state, "");
@@ -15,20 +17,14 @@ pub fn init_router() -> io::Result<Router> {
 }
 
 pub fn init_app_config(
-    app_handle: AppHandle,
-    config_path: Option<PathBuf>,
+    app_handle: &AppHandle,
+    data_dir: impl AsRef<Path>,
 ) -> tauri::Result<Arc<AppConfig>> {
-    let config_dir = app_handle.path().app_config_dir()?;
-
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)?;
+    if !data_dir.as_ref().exists() {
+        fs::create_dir_all(&data_dir)?;
     }
 
-    let config_path = if let Some(config_path) = config_path {
-        config_path
-    } else {
-        config_dir.join("config.yaml")
-    };
+    let config_path = data_dir.as_ref().join("config.yaml");
     log::debug!("config path: {:?}", config_path);
 
     let app_config = if config_path.exists() {
@@ -41,8 +37,10 @@ pub fn init_app_config(
             config_path
         );
         let mut default_config = AppConfig::default();
-        default_config.database.url =
-            format!("file://{}", config_dir.join("lidp.db").to_string_lossy());
+        default_config.database.url = format!(
+            "file://{}",
+            data_dir.as_ref().join("lidp.db").to_string_lossy()
+        );
         let json_str = yaml_serde::to_string(&default_config)
             .map_err(|e| tauri::Error::Io(std::io::Error::other(e)))?;
         fs::write(&config_path, json_str)?;
@@ -76,6 +74,27 @@ pub async fn request_handler(app_handle: AppHandle, request: Request) -> Respons
     }
 }
 
-pub async fn close(_app_handle: &AppHandle) -> io::Result<()> {
+pub fn init_iroh_rely(app_handle: &AppHandle, _app_config: &AppConfig) -> tauri::Result<()> {
+    let data_dir = app_handle.path().data_dir()?;
+
+    let async_app_handle = app_handle.clone();
+    let _async_handle = tauri::async_runtime::spawn(async move {
+        let relay = LocalRelay::start("storage.local", data_dir)
+            .await
+            .expect("failed to start local relay");
+
+        async_app_handle.manage(Mutex::new(Some(relay)));
+    });
+
+    Ok(())
+}
+
+pub async fn shutdown(app_handle: &AppHandle) -> tauri::Result<()> {
+    if let Some(relay_mutex) = app_handle.try_state::<Mutex<Option<LocalRelay>>>() {
+        if let Some(relay) = relay_mutex.lock().await.take() {
+            relay.shutdown().await?;
+        }
+    }
+
     Ok(())
 }

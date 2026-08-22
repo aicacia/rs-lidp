@@ -18,10 +18,9 @@ path = "src/main.rs"
 required-features = ["cli"]
 
 [features]
-default = ["cli", "completions", "remote", "swagger-ui"]
+default = ["cli", "completions", "swagger-ui"]
 cli = ["dep:tokio", "dep:tokio-util", "dep:dotenvy", "dep:clap", "dep:cli"]
 completions = ["cli?/completions"]
-remote = ["db/remote"]
 swagger-ui = ["utoipa-swagger-ui"]
 
 [dependencies]
@@ -39,7 +38,6 @@ cli = { path = "../cli", default-features = false, features = [
 # Internal
 key = { path = "../key", default-features = false, features = ["std"] }
 api = { path = "../api", default-features = false, features = [] }
-db = { path = "../db", default-features = false, features = ["migrate"] }
 model = { path = "../model", default-features = false, features = ["std", "utoipa", "axum"] }
 
 # Database`

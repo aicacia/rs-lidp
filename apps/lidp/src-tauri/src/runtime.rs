@@ -1,7 +1,4 @@
-use std::path::PathBuf;
-
 use tauri::{Manager, Window, WindowEvent, async_runtime::Mutex};
-use tauri_plugin_cli::CliExt;
 #[cfg(any(windows, target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
 
@@ -19,11 +16,6 @@ pub fn run() {
                 let _ = _r;
             }
         }));
-    }
-
-    #[cfg(desktop)]
-    {
-        builder = builder.plugin(tauri_plugin_cli::init());
     }
 
     builder = builder
@@ -44,21 +36,8 @@ pub fn run() {
                 let _ = app.deep_link().register_all();
             }
 
-            let mut config_path = None;
-            match app.cli().matches() {
-                Ok(matches) => {
-                    if let Some(config) = matches.args.get("config")
-                        && let Some(path) = config.value.as_str()
-                    {
-                        config_path = Some(PathBuf::from(path))
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to parse CLI arguments: {}", e);
-                }
-            }
-
-            let app_config = app::init_app_config(app.handle().clone(), config_path)?;
+            let app_config =
+                app::init_app_config(app.handle(), app.handle().path().app_config_dir()?)?;
 
             let app_handle = app.handle().clone();
             let _async_handle = tauri::async_runtime::spawn(async move {

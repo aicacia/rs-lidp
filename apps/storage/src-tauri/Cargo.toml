@@ -27,11 +27,12 @@ axum = { version = "0.8" }
 db = { path = "../../../crates/db", default-features = false, features = ["migrate"] }
 storage-server = { path = "../../../crates/storage-server", default-features = false, features = [] }
 
+rcgen = { version = "0.14", default-features = false, features = ["ring"] }
 iroh-relay = { version = "1.0", default-features = false, features = ["server", "tls-ring"] }
+rustls = { version = "0.23", default-features = false, features = [] }
 
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
-tauri-plugin-cli = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-opener = { version = "2", default-features = false, features = [] }

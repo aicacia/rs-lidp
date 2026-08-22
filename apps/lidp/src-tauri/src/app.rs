@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf, sync::Arc};
+use std::{fs, io, path::Path, sync::Arc};
 
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use db::{close_database, open_database};
@@ -91,20 +91,14 @@ pub async fn init_datebase(
 }
 
 pub fn init_app_config(
-    app_handle: AppHandle,
-    config_path: Option<PathBuf>,
+    app_handle: &AppHandle,
+    data_dir: impl AsRef<Path>,
 ) -> tauri::Result<Arc<AppConfig>> {
-    let config_dir = app_handle.path().app_config_dir()?;
-
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)?;
+    if !data_dir.as_ref().exists() {
+        fs::create_dir_all(&data_dir)?;
     }
 
-    let config_path = if let Some(config_path) = config_path {
-        config_path
-    } else {
-        config_dir.join("config.yaml")
-    };
+    let config_path = data_dir.as_ref().join("config.yaml");
     log::debug!("config path: {:?}", config_path);
 
     let app_config = if config_path.exists() {
@@ -121,8 +115,10 @@ pub fn init_app_config(
         default_config.bootstrap.is_master = true;
         default_config.bootstrap.web = false;
         default_config.bootstrap.desktop = true;
-        default_config.database.url =
-            format!("file://{}", config_dir.join("lidp.db").to_string_lossy());
+        default_config.database.url = format!(
+            "file://{}",
+            data_dir.as_ref().join("lidp.db").to_string_lossy()
+        );
         default_config.oauth2.issuer = "lidp://app".to_string();
         default_config.ui_public_uri = "lidp://app".to_string();
         default_config.api_public_uri = "lidp://app".to_string();

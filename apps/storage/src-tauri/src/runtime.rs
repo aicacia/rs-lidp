@@ -1,11 +1,8 @@
-use std::path::PathBuf;
-
 use tauri::{Manager, Window, WindowEvent, async_runtime::Mutex};
-use tauri_plugin_cli::CliExt;
 #[cfg(any(windows, target_os = "linux"))]
 use tauri_plugin_deep_link::DeepLinkExt;
 
-use crate::app;
+use crate::app::{self, init_iroh_rely, shutdown};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,11 +16,6 @@ pub fn run() {
                 let _ = _r;
             }
         }));
-    }
-
-    #[cfg(desktop)]
-    {
-        builder = builder.plugin(tauri_plugin_cli::init());
     }
 
     builder = builder
@@ -44,21 +36,10 @@ pub fn run() {
                 let _ = app.deep_link().register_all();
             }
 
-            let mut config_path = None;
-            match app.cli().matches() {
-                Ok(matches) => {
-                    if let Some(config) = matches.args.get("config")
-                        && let Some(path) = config.value.as_str()
-                    {
-                        config_path = Some(PathBuf::from(path))
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to parse CLI arguments: {}", e);
-                }
-            }
+            let app_config =
+                app::init_app_config(app.handle(), app.handle().path().app_config_dir()?)?;
 
-            let _app_config = app::init_app_config(app.handle().clone(), config_path)?;
+            init_iroh_rely(app.handle(), &app_config)?;
 
             let router = app::init_router()?;
 
@@ -82,7 +63,7 @@ fn on_window_event(window: &Window, event: &WindowEvent) {
 
             let app_handle = window.app_handle().clone();
             tauri::async_runtime::spawn(async move {
-                app::close(&app_handle).await.expect("failed to close app");
+                shutdown(&app_handle).await.expect("failed to shutdown");
                 app_handle.exit(0);
             });
         }
