@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::ErrorCode;
 
 /// Standard OAuth 2.0 error response structure (RFC 6749 Section 5.2).
+/// should match fields from crates/model/src/contract/error_response.rs
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(

@@ -38,6 +38,8 @@ db = { path = "./crates/db", default-features = false, features = [
   "migrate",
   "remote",
 ] }
+
+# LIDP
 lidp-model = { path = "./crates/lidp-model", default-features = false, features = [
   "migrate",
 ] }
@@ -50,6 +52,9 @@ lidp-management-server = { path = "./crates/lidp-management-server", default-fea
 lidp-service = { path = "./crates/lidp-service", default-features = false, features = [
   "std",
 ] }
+
+# Storage
+storage-server = { path = "./crates/storage-server", default-features = false, features = [] }
 
 # Database`
 libsql = { version = "0.9", default-features = false, features = [] }
@@ -103,12 +108,15 @@ members = [
   "crates/cli",
   "crates/api",
   "crates/key",
+  "crates/model",
   "crates/lidp-management-server",
   "crates/lidp-model",
   "crates/lidp-server",
   "crates/lidp-service",
+  "crates/storage-server",
   "crates/tauri-plugin-fetch-api",
-  "apps/lidp/src-tauri"
+  "apps/lidp/src-tauri",
+  "apps/storage/src-tauri"
 ]
 
 [workspace.package]

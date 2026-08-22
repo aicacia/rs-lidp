@@ -2,8 +2,9 @@ use std::marker::PhantomData;
 
 use axum::extract::{FromRef, FromRequestParts};
 use http::{HeaderValue, header::AUTHORIZATION, request::Parts};
-use lidp_model::contract::{ErrorCode, ErrorResponse, StandardClaims};
+use lidp_model::contract::{ErrorCode, ErrorResponse};
 use lidp_service::oauth2::{Principal, decode_jwt};
+use model::contract::StandardClaims;
 use serde::de::DeserializeOwned;
 
 use crate::RouterState;

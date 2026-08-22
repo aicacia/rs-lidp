@@ -11,8 +11,8 @@ use lidp_service::{
 
 #[derive(Clone)]
 pub struct RouterState {
-    pub ui_base_url: String,
-    pub api_base_url: String,
+    pub ui_base_uri: String,
+    pub api_base_uri: String,
     pub database: Arc<Database>,
     pub oauth2_service: Arc<
         OAuth2Service<
@@ -27,8 +27,8 @@ pub struct RouterState {
 
 impl RouterState {
     pub fn new(
-        ui_base_url: impl Into<String>,
-        api_base_url: impl Into<String>,
+        ui_base_uri: impl Into<String>,
+        api_base_uri: impl Into<String>,
         database: Arc<Database>,
         oauth2_service: Arc<
             OAuth2Service<
@@ -41,8 +41,8 @@ impl RouterState {
         >,
     ) -> Self {
         Self {
-            ui_base_url: ui_base_url.into(),
-            api_base_url: api_base_url.into(),
+            ui_base_uri: ui_base_uri.into(),
+            api_base_uri: api_base_uri.into(),
             database,
             oauth2_service,
         }

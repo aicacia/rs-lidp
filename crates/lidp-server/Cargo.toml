@@ -40,6 +40,11 @@ cli = { path = "../cli", default-features = false, features = [
 key = { path = "../key", default-features = false, features = ["std"] }
 api = { path = "../api", default-features = false, features = [] }
 db = { path = "../db", default-features = false, features = ["migrate"] }
+model = { path = "../model", default-features = false, features = [
+  "std",
+  "utoipa",
+  "axum",
+] }
 lidp-model = { path = "../lidp-model", default-features = false, features = [
   "std",
   "utoipa",

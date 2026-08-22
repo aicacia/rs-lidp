@@ -6,6 +6,9 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use model::contract::{
+    AccessToken, IdToken, RefreshToken, StandardClaims, TokenResponse, TokenType, TokenUse,
+};
 #[cfg(feature = "std")]
 use std::sync::Arc;
 
@@ -13,12 +16,11 @@ use chrono::{Duration, Utc};
 use lidp_model::model::{Client, Key};
 use lidp_model::{
     contract::{
-        AccessToken, ApproveForUserRequest, AuthorizationCodeResponse, AuthorizationRequest,
+        ApproveForUserRequest, AuthorizationCodeResponse, AuthorizationRequest,
         AuthorizationServerMetadata, ClientRegistration, ClientType, DeviceAuthorization,
         DeviceAuthorizationRequest, EntityType, ErrorCode, ErrorResponse, ErrorResponseResult,
-        GrantType, IdToken, IdTokenClaims, IsAllowedForUserRequest, IsAllowedForUserResponse,
-        JwkPrivate, JwkPublic, Jwks, OAuth2ClientAuth, RefreshToken, RevocationRequest,
-        StandardClaims, SubjectTokenType, TokenRequest, TokenResponse, TokenType, TokenUse,
+        GrantType, IdTokenClaims, IsAllowedForUserRequest, IsAllowedForUserResponse, JwkPrivate,
+        JwkPublic, Jwks, OAuth2ClientAuth, RevocationRequest, SubjectTokenType, TokenRequest,
         UserInfo,
     },
     model::User,

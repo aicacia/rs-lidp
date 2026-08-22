@@ -53,7 +53,7 @@ pub async fn run() -> io::Result<()> {
         io::Error::other(e)
     })?);
 
-    model::migrate::up(&database).await.map_err(|e| {
+    lidp_model::migrate::up(&database).await.map_err(|e| {
         log::error!("failed to run database migrations: {}", e);
         io::Error::other(e)
     })?;
@@ -107,7 +107,7 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let management_router_state = crate::RouterState::new(
-        &app_config.api_public_url,
+        &app_config.api_public_uri,
         database.clone(),
         management_service,
         oauth2_service,

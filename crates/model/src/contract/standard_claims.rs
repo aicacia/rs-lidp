@@ -29,8 +29,8 @@ pub struct StandardClaims {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resource: Option<String>,
     #[serde(
-        serialize_with = "crate::model::json_vec::serialize",
-        deserialize_with = "crate::model::json_vec::deserialize"
+        serialize_with = "crate::space_delimited::serialize",
+        deserialize_with = "crate::space_delimited::deserialize"
     )]
     pub scope: Vec<String>,
 }

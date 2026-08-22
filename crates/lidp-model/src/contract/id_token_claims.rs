@@ -6,9 +6,10 @@ use alloc::{
     vec::Vec,
 };
 
+use model::contract::StandardClaims;
 use serde::{Deserialize, Serialize};
 
-use crate::contract::{StandardClaims, UserInfo};
+use crate::contract::UserInfo;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

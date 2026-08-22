@@ -18,6 +18,7 @@ headless = []
 std = [
   "key/std",
   "lidp-model/std",
+  "model/std",
   "chrono/std",
   "chrono/serde",
   "base64/std",
@@ -31,6 +32,7 @@ std = [
 # Internal
 db = { path = "../db", default-features = false, features = [] }
 key = { path = "../key", default-features = false, features = [] }
+model = { path = "../model", default-features = false, features = [] }
 lidp-model = { path = "../lidp-model", default-features = false, features = [] }
 
 # Database

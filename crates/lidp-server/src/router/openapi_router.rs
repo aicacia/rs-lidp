@@ -38,7 +38,7 @@ pub(crate) struct ApiDoc;
 
 pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter {
     let prefix = if prefix == "/" { "" } else { prefix };
-    let api_base_url = router_state.api_base_url.clone();
+    let api_base_uri = router_state.api_base_uri.clone();
 
     let routes = || {
         OpenApiRouter::new()
@@ -66,7 +66,7 @@ pub fn openapi_router(router_state: RouterState, prefix: &str) -> OpenApiRouter 
 
     let mut openapi_spec = spec_router.get_openapi().clone();
 
-    openapi_spec.servers = Some(vec![Server::new(format!("{}{}", api_base_url, prefix))]);
+    openapi_spec.servers = Some(vec![Server::new(format!("{}{}", api_base_uri, prefix))]);
 
     if !prefix.is_empty() {
         let mut paths = Paths::new();

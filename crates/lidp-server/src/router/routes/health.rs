@@ -1,5 +1,5 @@
 use axum::{Json, extract::State, http::StatusCode};
-use lidp_model::contract::{HealthResponse, HealthStatus};
+use model::contract::{HealthResponse, HealthStatus};
 
 use crate::RouterState;
 

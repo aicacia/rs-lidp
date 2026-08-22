@@ -15,8 +15,8 @@ pub struct AppConfig {
     pub password: PasswordConfig,
     pub key_namespace: String,
     pub log_level: String,
-    pub ui_public_url: String,
-    pub api_public_url: String,
+    pub ui_public_uri: String,
+    pub api_public_uri: String,
     pub env: Environment,
 }
 
@@ -29,8 +29,8 @@ impl Default for AppConfig {
             bootstrap: BootstrapConfig::default(),
             password: PasswordConfig::default(),
             key_namespace: "lidp".to_string(),
-            ui_public_url: "https://lidp.localhost:1337".to_string(),
-            api_public_url: "https://lidp-api.localhost:1337".to_string(),
+            ui_public_uri: "https://lidp.localhost:1337".to_string(),
+            api_public_uri: "https://lidp-api.localhost:1337".to_string(),
             log_level: "DEBUG".to_string(),
             env: Environment::default(),
         }
@@ -45,7 +45,7 @@ impl<'a> TryFrom<&'a Path> for AppConfig {
             .add_source(config::File::with_name(
                 config_path.to_string_lossy().as_ref(),
             ))
-            .add_source(config::Environment::with_prefix("SERVER"))
+            .add_source(config::Environment::with_prefix("LIDP"))
             .build()?
             .try_deserialize()
     }

@@ -52,7 +52,7 @@ pub async fn run() -> io::Result<()> {
         io::Error::other(e)
     })?;
 
-    model::migrate::up(&database).await.map_err(|e| {
+    lidp_model::migrate::up(&database).await.map_err(|e| {
         log::error!("failed to run database migrations: {}", e);
         io::Error::other(e)
     })?;
@@ -98,8 +98,8 @@ pub async fn run() -> io::Result<()> {
         app_config.key_namespace.clone(),
     ));
     let router_state = RouterState::new(
-        &app_config.ui_public_url,
-        &app_config.api_public_url,
+        &app_config.ui_public_uri,
+        &app_config.api_public_uri,
         database.clone(),
         oauth2_service,
     );

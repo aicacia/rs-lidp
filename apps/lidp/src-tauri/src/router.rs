@@ -19,7 +19,7 @@ pub async fn init(app_config: Arc<AppConfig>) -> io::Result<Router> {
         io::Error::other(e)
     })?;
 
-    model::migrate::up(&database).await.map_err(|e| {
+    lidp_model::migrate::up(&database).await.map_err(|e| {
         log::error!("failed to run database migrations: {}", e);
         io::Error::other(e)
     })?;

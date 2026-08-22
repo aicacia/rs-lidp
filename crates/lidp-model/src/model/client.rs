@@ -24,7 +24,7 @@ pub struct Client {
     pub client_name: String,
     pub client_uri: String,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub redirect_uris: Vec<String>,
 
     #[serde(with = "super::sql_enum::client_type")]
@@ -35,18 +35,18 @@ pub struct Client {
     #[serde(with = "super::sql_enum::token_endpoint_auth_method")]
     pub token_endpoint_auth_method: TokenEndpointAuthMethod,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub allowed_grant_types: Vec<GrantType>,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub response_types: Vec<ResponseType>,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub allowed_scopes: Vec<String>,
 
     pub logo_uri: Option<String>,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub contacts: Vec<String>,
 
     pub terms_of_service_uri: Option<String>,

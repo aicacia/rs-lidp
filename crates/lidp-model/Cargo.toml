@@ -13,16 +13,16 @@ name = "lidp_model"
 
 [features]
 default = ["std", "migrate"]
-std = ["key/std", "serde/std", "serde_json/std", "chrono/std", "base64/std"]
+std = ["key/std", "model/std", "serde/std", "serde_json/std", "chrono/std", "base64/std"]
 migrate = ["db?/migrate", "dep:db", "dep:include_dir"]
-utoipa = ["dep:utoipa", "std"]
-axum = ["dep:axum"]
+utoipa = ["dep:utoipa", "std", "model/utoipa"]
+axum = ["dep:axum", "model/axum"]
 wasm = ["dep:tsify", "dep:serde-wasm-bindgen", "dep:wasm-bindgen"]
-
 
 [dependencies]
 # Internal
 key = { path = "../key", default-features = false, features = [] }
+model = { path = "../model", default-features = false, features = [] }
 db = { path = "../db", default-features = false, features = [], optional = true }
 
 # Web

@@ -17,7 +17,7 @@ pub struct OAuth2AuthorizationCode {
 
     pub redirect_uri: String,
 
-    #[serde(with = "super::json_vec")]
+    #[serde(with = "model::json_vec")]
     pub scopes: Vec<String>,
 
     pub resource: Option<String>,

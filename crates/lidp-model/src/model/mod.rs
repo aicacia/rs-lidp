@@ -1,6 +1,5 @@
 mod application;
 mod client;
-pub mod json_vec;
 mod key;
 mod none_to_default;
 mod oauth2_authorization_code;

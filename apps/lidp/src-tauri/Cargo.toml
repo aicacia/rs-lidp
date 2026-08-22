@@ -1,14 +1,13 @@
 [package]
 name = "lidp"
 version = "0.1.0"
-description = "LIdP Tauri App"
-authors = ["nathanfaucett@gmail.com"]
-license = ""
-repository = ""
-edition = "2024"
-rust-version = "1.97"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Local First Identity Provider Tauri App"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [lib]
 name = "lidp"

@@ -8,9 +8,7 @@ use alloc::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::contract::IdToken;
-
-use super::{AccessToken, RefreshToken, TokenType};
+use crate::contract::{AccessToken, IdToken, RefreshToken, TokenType};
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

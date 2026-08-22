@@ -6,9 +6,8 @@ use alloc::{
     vec::Vec,
 };
 
+use model::contract::RefreshToken;
 use serde::{Deserialize, Serialize};
-
-use super::RefreshToken;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

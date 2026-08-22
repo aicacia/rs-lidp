@@ -4,7 +4,8 @@ use axum::{
     http::HeaderMap,
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use lidp_model::contract::{ErrorResponse, OAuth2ClientAuth, TokenRequest, TokenResponse};
+use lidp_model::contract::{ErrorResponse, OAuth2ClientAuth, TokenRequest};
+use model::contract::TokenResponse;
 
 use crate::router::RouterState;
 

@@ -50,7 +50,7 @@
 			}
 		},
 		"cli": {
-			"description": "A Tauri app with CLI arguments",
+			"description": "Local First Identity Provider Application",
 			"args": [
 				{
 					"name": "config",

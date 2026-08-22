@@ -1,3 +1,11 @@
+use std::{
+    io,
+    net::{IpAddr, SocketAddr},
+    path::Path,
+    sync::Arc,
+    time::Duration,
+};
+
 use api::serve;
 use clap::Parser;
 use cli::{CliArgs, CliServerCommand, shutdown_signal};
@@ -12,13 +20,6 @@ use lidp_service::{
         LibSqlOAuth2AuthorizationCodeRepo, LibSqlOAuth2UserConsentRepo, LibSqlPermissionRepo,
         LibSqlRoleRepo, LibSqlUserRepo, PrivateKeyKeyringRepo,
     },
-};
-use std::{
-    io,
-    net::{IpAddr, SocketAddr},
-    path::Path,
-    sync::Arc,
-    time::Duration,
 };
 use tokio::{select, spawn, time::sleep};
 use tokio_util::sync::CancellationToken;
@@ -99,8 +100,8 @@ pub async fn run() -> io::Result<()> {
     ));
 
     let lidp_router_state = lidp_server::RouterState::new(
-        &app_config.ui_public_url,
-        &app_config.api_public_url,
+        &app_config.lidp_ui_public_uri,
+        &app_config.api_public_base_uri,
         database.clone(),
         oauth2_service.clone(),
     );
@@ -112,7 +113,7 @@ pub async fn run() -> io::Result<()> {
         LibSqlRoleRepo::new(database.clone()),
     ));
     let management_router_state = lidp_management_server::RouterState::new(
-        &app_config.api_public_url,
+        &app_config.api_public_base_uri,
         database.clone(),
         management_service,
         oauth2_service,
@@ -120,7 +121,10 @@ pub async fn run() -> io::Result<()> {
     let management_router =
         lidp_management_server::openapi_router(management_router_state, "/lidp-management");
 
-    let router = openapi_router(lidp_router, management_router)
+    let storage_router_state = storage_server::RouterState::new(&app_config.api_public_base_uri);
+    let storage_router = storage_server::openapi_router(storage_router_state, "/storage");
+
+    let router = openapi_router(lidp_router, management_router, storage_router)
         .layer(CorsLayer::very_permissive().allow_private_network(true))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new().gzip(app_config.server.gzip))
