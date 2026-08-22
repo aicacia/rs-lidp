@@ -109,6 +109,7 @@ members = [
   "crates/api",
   "crates/key",
   "crates/model",
+  "crates/iroh-client-wasm",
   "crates/lidp-management-server",
   "crates/lidp-model",
   "crates/lidp-server",

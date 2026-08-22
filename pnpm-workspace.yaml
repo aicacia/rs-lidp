@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/**/example"
+  - "crates/iroh-client-wasm"
   - "crates/tauri-plugin-fetch-api"
 allowBuilds:
   esbuild: true
