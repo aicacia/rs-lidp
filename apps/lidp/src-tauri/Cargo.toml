@@ -25,6 +25,7 @@ tower-service = "0.3"
 axum = { version = "0.8" }
 libsql = { version = "0.9", default-features = false, features = [] }
 
+db = { path = "../../../crates/db", default-features = false, features = ["migrate"] }
 lidp-service = { path = "../../../crates/lidp-service", default-features = false, features = ["std"] }
 lidp-model = { path = "../../../crates/lidp-model", default-features = false, features = ["std", "migrate"] }
 lidp-server = { path = "../../../crates/lidp-server", default-features = false, features = [] }

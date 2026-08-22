@@ -123,10 +123,10 @@ pub fn init_app_config(
         default_config.ui_public_uri = "lidp://app".to_string();
         default_config.api_public_uri = "lidp://app".to_string();
 
-        let json_str = yaml_serde::to_string(&default_config)
+        let default_config_yaml = yaml_serde::to_string(&default_config)
             .map_err(|e| tauri::Error::Io(std::io::Error::other(e)))?;
 
-        fs::write(&config_path, json_str)?;
+        fs::write(&config_path, default_config_yaml)?;
 
         default_config
     };

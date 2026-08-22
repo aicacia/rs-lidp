@@ -3733,6 +3733,7 @@ name = "lidp"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "db",
  "libsql",
  "lidp-model",
  "lidp-server",
@@ -6359,7 +6360,6 @@ name = "storage"
 version = "0.1.0"
 dependencies = [
  "axum",
- "db",
  "iroh-relay",
  "log",
  "rcgen",

@@ -75,11 +75,13 @@ async fn load_or_create_ca(data_dir: &Path) -> io::Result<KeyPair> {
     let key_path = data_dir.join("relay-ca.key");
 
     if fs::exists(&key_path)? {
+        log::debug!("Loading existing CA key from {:?}", key_path);
         let key = fs::read_to_string(&key_path)?;
         return Ok(KeyPair::from_pem(&key).map_err(io::Error::other)?);
     }
 
     let key = KeyPair::generate().map_err(io::Error::other)?;
+    log::debug!("Generated new CA key and saving to {:?}", key_path);
 
     fs::write(&key_path, key.serialize_pem())?;
 
@@ -95,6 +97,11 @@ async fn load_or_create_server_cert(
     let key_path = data_dir.join("relay-server.key");
 
     if fs::exists(&cert_path)? && fs::exists(&key_path)? {
+        log::debug!(
+            "Loading existing server certificate and key from {:?} and {:?}",
+            cert_path,
+            key_path
+        );
         return Ok(CertificateFiles {
             cert_der: fs::read(cert_path)?,
             key_der: fs::read(key_path)?,
@@ -131,6 +138,12 @@ async fn load_or_create_server_cert(
 
     let cert_der = cert.der().to_vec();
     let key_der = key.serialize_der();
+
+    log::debug!(
+        "Generated new server certificate and key, saving to {:?} and {:?}",
+        cert_path,
+        key_path
+    );
 
     fs::write(cert_path, &cert_der)?;
     fs::write(key_path, &key_der)?;

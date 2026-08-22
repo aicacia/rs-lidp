@@ -36,14 +36,10 @@ pub fn init_app_config(
             "config file not found, creating default config at {:?}",
             config_path
         );
-        let mut default_config = AppConfig::default();
-        default_config.database.url = format!(
-            "file://{}",
-            data_dir.as_ref().join("lidp.db").to_string_lossy()
-        );
-        let json_str = yaml_serde::to_string(&default_config)
+        let default_config = AppConfig::default();
+        let default_config_yaml = yaml_serde::to_string(&default_config)
             .map_err(|e| tauri::Error::Io(std::io::Error::other(e)))?;
-        fs::write(&config_path, json_str)?;
+        fs::write(&config_path, default_config_yaml)?;
         default_config
     };
 
@@ -75,7 +71,7 @@ pub async fn request_handler(app_handle: AppHandle, request: Request) -> Respons
 }
 
 pub fn init_iroh_rely(app_handle: &AppHandle, _app_config: &AppConfig) -> tauri::Result<()> {
-    let data_dir = app_handle.path().data_dir()?;
+    let data_dir = app_handle.path().app_data_dir()?;
 
     let async_app_handle = app_handle.clone();
     let _async_handle = tauri::async_runtime::spawn(async move {
