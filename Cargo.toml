@@ -117,6 +117,7 @@ members = [
   "crates/lidp-service",
   "crates/storage-iroh",
   "crates/storage-server",
+  "crates/storage-service",
   "crates/tauri-plugin-fetch-api",
   "apps/lidp/src-tauri",
   "apps/storage/src-tauri",

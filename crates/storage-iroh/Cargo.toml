@@ -27,3 +27,4 @@ tokio = { version = "1.52", default-features = false, features = [
 ] }
 
 [dev-dependencies]
+serde_json = { version = "1.0", default-features = false, features = ["std"] }

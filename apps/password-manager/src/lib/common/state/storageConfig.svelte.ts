@@ -1,5 +1,5 @@
 import { nativeFetch } from "@aicacia/native-fetch";
-import { StorageClient } from '@aicacia/storage-client';
+import { StorageClient } from "@aicacia/storage-client";
 import { createStorage } from "@aicacia/svelte-headless";
 
 export type StorageBridgeConfig = {
@@ -11,9 +11,12 @@ const storageBridgeConfig = createStorage<StorageBridgeConfig | null>(
     null,
 );
 
-const storageClient = $derived.by(() => new StorageClient({
-  url: storageBridgeConfig.item?.storageBridgeUrl ?? "",
-}));
+const storageClient = $derived.by(
+    () =>
+        new StorageClient({
+            url: storageBridgeConfig.item?.storageBridgeUrl ?? "",
+        }),
+);
 
 export function getStorageBridgeConfig(): StorageBridgeConfig | null {
     return storageBridgeConfig.item;
@@ -25,12 +28,20 @@ export function getStorageBridgeUrl(): string | null {
 
 export async function loadStorageBridgeConfig(): Promise<StorageBridgeConfig | null> {
     try {
-        const response = await nativeFetch("storage://app/config");
-        const config = (await response.json()) as StorageBridgeConfig;
+        // Get the bridge URL from the bridge-url endpoint
+        const bridgeUrlResponse = await nativeFetch("storage://app/bridge-url");
+        const bridgeUrlData = (await bridgeUrlResponse.json()) as {
+            bridgeUrl: string;
+        };
 
-        storageBridgeConfig.item = config;
+        if (bridgeUrlData.bridgeUrl) {
+            storageBridgeConfig.item = {
+                storageBridgeUrl: bridgeUrlData.bridgeUrl,
+            };
+            return storageBridgeConfig.item;
+        }
 
-        return config;
+        return null;
     } catch (error) {
         console.warn("Failed to load storage bridge config", error);
         return storageBridgeConfig.item;
@@ -39,4 +50,8 @@ export async function loadStorageBridgeConfig(): Promise<StorageBridgeConfig | n
 
 export function getStorageClient(): StorageClient {
     return storageClient;
+}
+
+export function resetStorageBridgeConfig(): void {
+    storageBridgeConfig.reset();
 }

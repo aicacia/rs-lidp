@@ -15,6 +15,10 @@ A browser-facing client for the native storage app. This package does not speak 
 - gossip relay configuration in the browser
 - application cryptography or peer trust logic
 
+## Basic Usage
+
+### Peer Operations
+
 ```ts
 import { StorageClient } from "@aicacia/storage-client";
 
@@ -30,3 +34,23 @@ for await (const event of client.listen()) {
   }
 }
 ```
+
+### File Operations
+
+The storage bridge provides simple file read/write capabilities for app-level data storage:
+
+```ts
+import { StorageClient, readStorageFile, writeStorageFile } from "@aicacia/storage-client";
+
+const client = StorageClient.create({ url: "wss://storage.local:PORT" });
+
+// Write a file to the storage bridge
+await writeStorageFile(client, "example/hello.txt", "Hello, World!");
+
+// Read a file from the storage bridge
+const content = await readStorageFile(client, "example/hello.txt");
+console.log(content); // "Hello, World!"
+```
+
+All file paths are relative to the storage bridge's data directory and are secured against path traversal attacks.
+

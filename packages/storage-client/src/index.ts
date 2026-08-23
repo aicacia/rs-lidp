@@ -4,7 +4,9 @@ export type StorageRequest =
     | { type: "connectPeer"; peerId: string }
     | { type: "syncPeer"; peerId: string }
     | { type: "sendMessage"; peerId: string; payload: string | Uint8Array }
-    | { type: "closeSession"; peerId: string };
+    | { type: "closeSession"; peerId: string }
+    | { type: "readFile"; path: string }
+    | { type: "writeFile"; path: string; content: string };
 
 export type StorageResponse =
     | { ok: true; event?: StorageEvent; payload?: unknown }
@@ -278,5 +280,54 @@ export class StorageClient {
                 }
             },
         };
+    }
+}
+
+/**
+ * Reads the contents of a file from the storage bridge.
+ * @param client The StorageClient instance
+ * @param path The relative path to the file
+ * @returns The file contents as a string
+ */
+export async function readStorageFile(
+    client: StorageClient,
+    path: string,
+): Promise<string> {
+    const response = await client.request<StorageResponse>({
+        type: "readFile",
+        path,
+    });
+
+    if (!response.ok) {
+        throw new Error(response.error);
+    }
+
+    if (typeof response.payload !== "string") {
+        throw new Error("Expected string payload from readFile");
+    }
+
+    return response.payload;
+}
+
+/**
+ * Writes content to a file in the storage bridge.
+ * Creates the file if it doesn't exist, and creates parent directories as needed.
+ * @param client The StorageClient instance
+ * @param path The relative path to the file
+ * @param content The content to write
+ */
+export async function writeStorageFile(
+    client: StorageClient,
+    path: string,
+    content: string,
+): Promise<void> {
+    const response = await client.request<StorageResponse>({
+        type: "writeFile",
+        path,
+        content,
+    });
+
+    if (!response.ok) {
+        throw new Error(response.error);
     }
 }

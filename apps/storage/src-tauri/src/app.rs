@@ -51,6 +51,27 @@ pub fn init_app_config(
 }
 
 pub async fn request_handler(app_handle: AppHandle, request: Request) -> Response {
+    // Handle bridge URL endpoint
+    let path = request.uri().path();
+    if path.contains("/bridge-url") {
+        let bridge_url = if let Some(bridge_state) = app_handle.try_state::<Mutex<StorageBridge>>()
+        {
+            let bridge = bridge_state.lock().await;
+            bridge.url().await
+        } else {
+            String::new()
+        };
+
+        let json_response = format!(r#"{{"bridgeUrl":"{}"}}"#, bridge_url);
+        let mut response = json_response.into_response();
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
+
+        return response;
+    }
+
     let router_state = app_handle.state::<Mutex<Router>>();
     let mut router = router_state.lock().await;
 
@@ -70,12 +91,27 @@ pub async fn request_handler(app_handle: AppHandle, request: Request) -> Respons
     }
 }
 
+#[tauri::command]
+pub async fn get_storage_bridge_url(app_handle: AppHandle) -> String {
+    if let Some(bridge_state) = app_handle.try_state::<Mutex<StorageBridge>>() {
+        let bridge = bridge_state.lock().await;
+        bridge.url().await
+    } else {
+        String::new()
+    }
+}
+
 pub fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
     let data_dir = app_handle.path().app_data_dir()?;
     let _ = tauri::async_runtime::block_on(ensure_storage_bridge_certificate(&data_dir))
         .map_err(|err| tauri::Error::Io(std::io::Error::other(err)))?;
 
-    let bridge = StorageBridge::new();
+    let files_dir = data_dir.join("files");
+    if !files_dir.exists() {
+        fs::create_dir_all(&files_dir)?;
+    }
+
+    let bridge = StorageBridge::new(files_dir);
     let server_bridge = bridge.clone();
     let bridge_data_dir = data_dir.clone();
 

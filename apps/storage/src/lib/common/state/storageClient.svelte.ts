@@ -1,47 +1,42 @@
 import { StorageClient } from "@aicacia/storage-client";
-import { createStorage } from "@aicacia/svelte-headless";
-
-export type StorageBridgeConfig = {
-    storageBridgeUrl: string;
-};
-
-const storageBridgeUrl = createStorage<string | null>(
-    "storage-bridge-url",
-    null,
-);
+import { invoke } from "@tauri-apps/api/core";
 
 function normalizeStorageBridgeUrl(url: string | null): string | null {
     return url ? url.trim().replace(/\/$/, "") : null;
 }
 
-export function getStorageBridgeConfig(): StorageBridgeConfig | null {
-    const normalized = normalizeStorageBridgeUrl(storageBridgeUrl.item);
-    return normalized ? { storageBridgeUrl: normalized } : null;
+async function fetchStorageBridgeUrl(): Promise<string | null> {
+    const bridgeUrl = await invoke<string>("get_storage_bridge_url");
+    return normalizeStorageBridgeUrl(bridgeUrl);
 }
 
-export function getStorageBridgeUrl(): string | null {
-    return normalizeStorageBridgeUrl(storageBridgeUrl.item);
+export type StorageBridgeConfig = {
+    storageBridgeUrl: string;
+};
+
+export async function getStorageBridgeConfig(): Promise<StorageBridgeConfig | null> {
+    const storageBridgeUrl = await fetchStorageBridgeUrl();
+    return storageBridgeUrl ? { storageBridgeUrl } : null;
 }
 
-export function setStorageBridgeUrl(newStorageBridgeUrl: string): void {
-    storageBridgeUrl.item = normalizeStorageBridgeUrl(newStorageBridgeUrl);
+export async function getStorageBridgeUrl(): Promise<string | null> {
+    const storageBridgeConfig = await getStorageBridgeConfig();
+    return storageBridgeConfig?.storageBridgeUrl ?? null;
 }
 
-export function createStorageBridgeClient(): StorageClient | null {
-    const url = normalizeStorageBridgeUrl(storageBridgeUrl.item);
-    return url ? StorageClient.create({ url }) : null;
+export async function getStorageClient(): Promise<StorageClient | null> {
+    const storageBridgeUrl = await getStorageBridgeUrl();
+    return storageBridgeUrl
+        ? StorageClient.create({ url: storageBridgeUrl })
+        : null;
 }
 
-let storageClient = $derived.by(() => createStorageBridgeClient());
-
-export function getStorageClient(): StorageClient | null {
-    return storageClient;
-}
-
-export function isStorageBridgeNative(): boolean {
-    const url = normalizeStorageBridgeUrl(storageBridgeUrl.item);
-    return url
-        ? /^wss:\/\/(127\.0\.0\.1|localhost|storage\.local)(:\d+)?$/i.test(url)
+export function isStorageBridgeNative(url: string): boolean {
+    const normalized = normalizeStorageBridgeUrl(url);
+    return normalized
+        ? /^wss:\/\/(127\.0\.0\.1|localhost|storage\.local)(:\d+)?$/i.test(
+              normalized,
+          )
         : false;
 }
 

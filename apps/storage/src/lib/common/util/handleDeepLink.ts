@@ -4,8 +4,6 @@ import { getStorageBridgeConfig } from "../state/storageClient.svelte";
 import { redirectToUrl } from "./redirectToUrl";
 
 export async function handleDeepLink(urlStrings: string[]): Promise<void> {
-    console.log("handleDeepLink", urlStrings);
-
     const [urlString] = urlStrings;
     if (!urlString) {
         return;
@@ -16,15 +14,22 @@ export async function handleDeepLink(urlStrings: string[]): Promise<void> {
     console.debug("Deep link received", url);
 
     switch (url.pathname) {
-        case "/config": {
+        case "/bridge-url": {
+            const bridgeUrlConfig = await getStorageBridgeConfig();
             const callbackUrl = await handleNativeCallbackRequestUrl(
                 url,
                 () =>
-                    new Response(JSON.stringify(getStorageBridgeConfig()), {
-                        headers: {
-                            "content-type": "application/json;charset=UTF-8",
+                    new Response(
+                        JSON.stringify({
+                            bridgeUrl: bridgeUrlConfig?.storageBridgeUrl ?? "",
+                        }),
+                        {
+                            headers: {
+                                "content-type":
+                                    "application/json;charset=UTF-8",
+                            },
                         },
-                    }),
+                    ),
             );
 
             await redirectToUrl(callbackUrl);

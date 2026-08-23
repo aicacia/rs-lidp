@@ -35,6 +35,8 @@ storage-server = { path = "../../../crates/storage-server", default-features = f
 ] }
 storage-iroh = { path = "../../../crates/storage-iroh", default-features = false, features = [
 ] }
+storage-service = { path = "../../../crates/storage-service", default-features = false, features = [
+] }
 
 rcgen = { version = "0.14", default-features = false, features = [
   "ring",

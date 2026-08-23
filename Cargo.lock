@@ -6944,6 +6944,7 @@ dependencies = [
  "serde_json",
  "storage-iroh",
  "storage-server",
+ "storage-service",
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",
@@ -6962,6 +6963,7 @@ name = "storage-iroh"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "tokio",
 ]
 
@@ -6992,6 +6994,14 @@ dependencies = [
  "utoipa",
  "utoipa-axum",
  "utoipa-swagger-ui",
+]
+
+[[package]]
+name = "storage-service"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

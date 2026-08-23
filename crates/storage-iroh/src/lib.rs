@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, broadcast};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum StorageRequest {
     AddDevice { device_id: String },
     RemoveDevice { device_id: String },
@@ -14,34 +14,87 @@ pub enum StorageRequest {
     SyncPeer { peer_id: String },
     SendMessage { peer_id: String, payload: String },
     CloseSession { peer_id: String },
+    ReadFile { path: String },
+    WriteFile { path: String, content: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum StorageEvent {
-    Connected {
-        peer_id: String,
-    },
-    MessageReceived {
-        peer_id: String,
-        payload: String,
-    },
+    #[serde(rename_all = "camelCase")]
+    Connected { peer_id: String },
+    #[serde(rename_all = "camelCase")]
+    MessageReceived { peer_id: String, payload: String },
+    #[serde(rename_all = "camelCase")]
     Closed {
         peer_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum StorageResponse {
-    Ok {
-        event: Option<StorageEvent>,
-        payload: Option<String>,
-    },
-    Err {
-        error: String,
-    },
+pub struct StorageResponse {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event: Option<StorageEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+impl StorageResponse {
+    /// Creates a successful response with optional event and/or payload.
+    pub fn success(event: Option<StorageEvent>, payload: Option<String>) -> Self {
+        StorageResponse {
+            ok: true,
+            event,
+            payload,
+            error: None,
+        }
+    }
+
+    /// Creates a successful response with only a payload.
+    pub fn success_payload(payload: String) -> Self {
+        StorageResponse {
+            ok: true,
+            event: None,
+            payload: Some(payload),
+            error: None,
+        }
+    }
+
+    /// Creates a successful response with only an event.
+    pub fn success_event(event: StorageEvent) -> Self {
+        StorageResponse {
+            ok: true,
+            event: Some(event),
+            payload: None,
+            error: None,
+        }
+    }
+
+    /// Creates a successful response with no additional data.
+    pub fn success_empty() -> Self {
+        StorageResponse {
+            ok: true,
+            event: None,
+            payload: None,
+            error: None,
+        }
+    }
+
+    /// Creates an error response.
+    pub fn error(error: String) -> Self {
+        StorageResponse {
+            ok: false,
+            event: None,
+            payload: None,
+            error: Some(error),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -166,5 +219,128 @@ impl StorageIrohRuntime {
         };
         let _ = self.events.send(event.clone());
         Ok(event)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_storage_request_read_file_serde() {
+        let request = StorageRequest::ReadFile {
+            path: "example/hello.txt".to_string(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"type\":\"readFile\""));
+        assert!(json.contains("\"path\""));
+
+        let deserialized: StorageRequest = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StorageRequest::ReadFile { path } => assert_eq!(path, "example/hello.txt"),
+            _ => panic!("Expected ReadFile"),
+        }
+    }
+
+    #[test]
+    fn test_storage_request_write_file_serde() {
+        let request = StorageRequest::WriteFile {
+            path: "example/hello.txt".to_string(),
+            content: "Hello, World!".to_string(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"type\":\"writeFile\""));
+        assert!(json.contains("\"path\""));
+        assert!(json.contains("\"content\""));
+
+        let deserialized: StorageRequest = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StorageRequest::WriteFile { path, content } => {
+                assert_eq!(path, "example/hello.txt");
+                assert_eq!(content, "Hello, World!");
+            }
+            _ => panic!("Expected WriteFile"),
+        }
+    }
+
+    #[test]
+    fn test_storage_response_success_payload() {
+        let response = StorageResponse::success_payload("Hello, World!".to_string());
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Verify the JSON structure matches TS format: { ok: true, payload: "..." }
+        assert!(json.contains("\"ok\":true"));
+        assert!(json.contains("\"payload\""));
+        // error and event should not be present when using skip_serializing_if
+        assert!(!json.contains("\"error\""));
+        assert!(!json.contains("\"event\""));
+
+        let deserialized: StorageResponse = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.ok);
+        assert_eq!(deserialized.payload, Some("Hello, World!".to_string()));
+        assert!(deserialized.event.is_none());
+        assert!(deserialized.error.is_none());
+    }
+
+    #[test]
+    fn test_storage_response_error() {
+        let response = StorageResponse::error("File not found".to_string());
+        let json = serde_json::to_string(&response).unwrap();
+
+        // Verify the JSON structure matches TS format: { ok: false, error: "..." }
+        assert!(json.contains("\"ok\":false"));
+        assert!(json.contains("\"error\""));
+        // payload and event should not be present
+        assert!(!json.contains("\"payload\""));
+        assert!(!json.contains("\"event\""));
+
+        let deserialized: StorageResponse = serde_json::from_str(&json).unwrap();
+        assert!(!deserialized.ok);
+        assert_eq!(deserialized.error, Some("File not found".to_string()));
+        assert!(deserialized.payload.is_none());
+        assert!(deserialized.event.is_none());
+    }
+
+    #[test]
+    fn test_storage_response_success_event() {
+        let event = StorageEvent::Connected {
+            peer_id: "peer123".to_string(),
+        };
+        let response = StorageResponse::success_event(event);
+        let json = serde_json::to_string(&response).unwrap();
+
+        assert!(json.contains("\"ok\":true"));
+        assert!(json.contains("\"event\""));
+        assert!(json.contains("\"type\":\"connected\""));
+        assert!(json.contains("\"peerId\""));
+
+        let deserialized: StorageResponse = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.ok);
+        assert!(deserialized.event.is_some());
+        assert!(deserialized.payload.is_none());
+    }
+
+    #[test]
+    fn test_storage_event_serde_camel_case() {
+        let event = StorageEvent::MessageReceived {
+            peer_id: "peer123".to_string(),
+            payload: "Hello".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+
+        // Properties should be in camelCase
+        assert!(json.contains("\"peerId\""));
+        assert!(!json.contains("\"peer_id\""));
+        assert!(json.contains("\"payload\""));
+        assert!(json.contains("\"type\":\"messageReceived\""));
+
+        let deserialized: StorageEvent = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StorageEvent::MessageReceived { peer_id, payload } => {
+                assert_eq!(peer_id, "peer123");
+                assert_eq!(payload, "Hello");
+            }
+            _ => panic!("Expected MessageReceived"),
+        }
     }
 }

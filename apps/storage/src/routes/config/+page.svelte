@@ -1,6 +1,5 @@
 <script lang="ts" module>
     import * as v from "valibot";
-    import { validateStorageBridgeUrl } from "$lib/common/state/storageClient.svelte";
     import { m } from "$lib/paraglide/messages";
 
     const configSchema = v.objectAsync({
@@ -9,14 +8,6 @@
             v.nonEmpty(m.errors_message_required()),
             v.url(m.errors_message_invalid_url()),
             v.checkAsync(validateLidpApiUrl, m.errors_message_invalid_url()),
-        ),
-        storageBridgeUrl: v.pipeAsync(
-            v.string(),
-            v.nonEmpty(m.errors_message_required()),
-            v.checkAsync(
-                validateStorageBridgeUrl,
-                m.errors_message_invalid_url(),
-            ),
         ),
     });
 </script>
@@ -32,14 +23,10 @@
         validateLidpApiUrl,
     } from "$lib/common/state/lidpClient.svelte";
     import { notifications } from "$lib/common/state/notifications.svelte";
-    import {
-        getStorageBridgeUrl,
-        setStorageBridgeUrl,
-    } from "$lib/common/state/storageClient.svelte";
+    import { getStorageBridgeUrl } from "$lib/common/state/storageClient.svelte";
 
     const form = createForm(configSchema, {
         lidpApiUrl: getLidpApiUrl() ?? "",
-        storageBridgeUrl: getStorageBridgeUrl() ?? "",
     });
 
     $effect(() => {
@@ -48,8 +35,8 @@
         }
     });
 
-    function showCertificateTrustNotice(): void {
-        const url = getStorageBridgeUrl();
+    async function showCertificateTrustNotice(): Promise<void> {
+        const url = await getStorageBridgeUrl();
         if (url && /^wss:\/\//i.test(url)) {
             window.alert(
                 "The storage bridge uses a self-signed certificate. Open the cert file and trust it before connecting, or the browser will block the WebSocket.",
@@ -68,7 +55,6 @@
         }
 
         setLidpApiUrl(output.lidpApiUrl);
-        setStorageBridgeUrl(output.storageBridgeUrl);
 
         await goto(resolve("/"));
     }
@@ -87,16 +73,6 @@
                     bind:value={form.fields.lidpApiUrl.value}
                 />
                 <Issues issues={form.fields.lidpApiUrl.issues} />
-            </label>
-            <label class="flex flex-col">
-                Storage bridge URL
-                <input
-                    type="text"
-                    aria-label="Storage bridge URL"
-                    placeholder="wss://storage.local:43123"
-                    bind:value={form.fields.storageBridgeUrl.value}
-                />
-                <Issues issues={form.fields.storageBridgeUrl.issues} />
             </label>
             <button
                 type="button"

@@ -18,6 +18,7 @@ use rcgen::{
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde::{Deserialize, Serialize};
 use storage_iroh::{StorageEvent, StorageIrohRuntime, StorageRequest, StorageResponse};
+use storage_service::StorageService;
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
@@ -134,6 +135,7 @@ async fn load_or_create_server_cert(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 enum BridgeMessage {
     Request {
@@ -184,13 +186,15 @@ impl axum::serve::Listener for TlsListener {
 #[derive(Debug, Clone)]
 pub struct StorageBridge {
     runtime: StorageIrohRuntime,
+    storage: Arc<StorageService>,
     url: Arc<tokio::sync::Mutex<String>>,
 }
 
 impl StorageBridge {
-    pub fn new() -> Self {
+    pub fn new(files_dir: PathBuf) -> Self {
         Self {
             runtime: StorageIrohRuntime::new(),
+            storage: Arc::new(StorageService::new(files_dir)),
             url: Arc::new(tokio::sync::Mutex::new(String::new())),
         }
     }
@@ -200,25 +204,45 @@ impl StorageBridge {
     }
 
     pub async fn handle_request(&self, request: StorageRequest) -> Result<StorageResponse, String> {
-        let event = match request {
-            StorageRequest::AddDevice { device_id } => self.runtime.add_device(&device_id).await?,
-            StorageRequest::RemoveDevice { device_id } => {
-                self.runtime.remove_device(&device_id).await?
+        match request {
+            StorageRequest::ReadFile { path } => {
+                let bytes = self
+                    .storage
+                    .read_file(&path)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                let content = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_payload(content))
             }
-            StorageRequest::ConnectPeer { peer_id } => self.runtime.connect_peer(&peer_id).await?,
-            StorageRequest::SyncPeer { peer_id } => self.runtime.sync_peer(&peer_id).await?,
-            StorageRequest::SendMessage { peer_id, payload } => {
-                self.runtime.send_message(&peer_id, &payload).await?
+            StorageRequest::WriteFile { path, content } => {
+                self.storage
+                    .write_file(&path, content.as_bytes())
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_empty())
             }
-            StorageRequest::CloseSession { peer_id } => {
-                self.runtime.close_session(&peer_id).await?
-            }
-        };
+            other_request => {
+                let event = match other_request {
+                    StorageRequest::AddDevice { device_id } => {
+                        self.runtime.add_device(&device_id).await?
+                    }
+                    StorageRequest::RemoveDevice { device_id } => {
+                        self.runtime.remove_device(&device_id).await?
+                    }
+                    StorageRequest::ConnectPeer { peer_id } => self.runtime.connect_peer(&peer_id).await?,
+                    StorageRequest::SyncPeer { peer_id } => self.runtime.sync_peer(&peer_id).await?,
+                    StorageRequest::SendMessage { peer_id, payload } => {
+                        self.runtime.send_message(&peer_id, &payload).await?
+                    }
+                    StorageRequest::CloseSession { peer_id } => {
+                        self.runtime.close_session(&peer_id).await?
+                    }
+                    _ => unreachable!(),
+                };
 
-        Ok(StorageResponse::Ok {
-            event: Some(event),
-            payload: None,
-        })
+                Ok(StorageResponse::success_event(event))
+            }
+        }
     }
 
     fn build_server_config(data_dir: &Path) -> Result<Arc<rustls::ServerConfig>, String> {
@@ -296,7 +320,7 @@ impl StorageBridge {
                                 let response = bridge.handle_request(request).await;
                                 let response = match response {
                                     Ok(r) => r,
-                                    Err(err) => StorageResponse::Err { error: err },
+                                    Err(err) => StorageResponse::error(err),
                                 };
 
                                 let payload = match serde_json::to_string(&BridgeMessage::Response {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { StorageClient } from "./index";
+import { readStorageFile, StorageClient, writeStorageFile } from "./index";
 
 describe("storage client", () => {
     it("creates a client and exposes peer session operations", () => {
@@ -29,5 +29,64 @@ describe("storage client", () => {
                 globalThis.WebSocket = original;
             }
         }
+    });
+
+    describe("file operations", () => {
+        it("exposes readStorageFile helper function", () => {
+            expect(typeof readStorageFile).toBe("function");
+        });
+
+        it("exposes writeStorageFile helper function", () => {
+            expect(typeof writeStorageFile).toBe("function");
+        });
+
+        it("creates a read file request with correct type and path", async () => {
+            const client = StorageClient.create({ url: "ws://localhost:3042" });
+            let capturedRequest: unknown;
+
+            const originalRequest = client.request.bind(client);
+            client.request = async (request) => {
+                capturedRequest = request;
+                throw new Error("mock error");
+            };
+
+            try {
+                await readStorageFile(client, "test/file.txt");
+            } catch (e) {
+                // Expected to throw due to our mock
+            }
+
+            expect(capturedRequest).toEqual({
+                type: "readFile",
+                path: "test/file.txt",
+            });
+        });
+
+        it("creates a write file request with correct type, path and content", async () => {
+            const client = StorageClient.create({ url: "ws://localhost:3042" });
+            let capturedRequest: unknown;
+
+            const originalRequest = client.request.bind(client);
+            client.request = async (request) => {
+                capturedRequest = request;
+                throw new Error("mock error");
+            };
+
+            try {
+                await writeStorageFile(
+                    client,
+                    "test/file.txt",
+                    "Hello, World!",
+                );
+            } catch (e) {
+                // Expected to throw due to our mock
+            }
+
+            expect(capturedRequest).toEqual({
+                type: "writeFile",
+                path: "test/file.txt",
+                content: "Hello, World!",
+            });
+        });
     });
 });

@@ -1,0 +1,19 @@
+[package]
+name = "storage-service"
+edition = "2024"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { version = "1.52", default-features = false, features = ["fs", "rt"] }
+
+[dev-dependencies]
+tokio = { version = "1.52", default-features = false, features = [
+  "fs",
+  "rt",
+  "macros",
+] }
+tempfile = { version = "3.14", default-features = false }
