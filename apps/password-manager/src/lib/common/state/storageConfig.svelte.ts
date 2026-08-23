@@ -41,10 +41,12 @@ export async function loadStorageBridgeConfig(): Promise<StorageBridgeConfig | n
             return storageBridgeConfig.item;
         }
 
+        storageBridgeConfig.reset();
         return null;
     } catch (error) {
+        storageBridgeConfig.reset();
         console.warn("Failed to load storage bridge config", error);
-        return storageBridgeConfig.item;
+        return null;
     }
 }
 

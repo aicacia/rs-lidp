@@ -128,13 +128,14 @@ export class StorageClient {
             const socket = new WebSocketImpl(this.options.url);
 
             const onOpen = () => {
-                cleanup();
+                socket.removeEventListener("open", onOpen);
+                socket.removeEventListener("error", onError);
                 this.socket = socket;
                 resolve(socket);
             };
 
             const onError = () => {
-                cleanup();
+                cleanupConnectionListeners();
                 this.socket = null;
                 this.socketPromise = null;
                 reject(
@@ -144,18 +145,35 @@ export class StorageClient {
                 );
             };
 
+            const onClose = () => {
+                cleanupConnectionListeners();
+                if (this.socket === socket) {
+                    this.socket = null;
+                    this.socketPromise = null;
+                }
+                for (const waiter of this.requestWaiters.values()) {
+                    waiter({
+                        ok: false,
+                        error: "Storage bridge connection closed",
+                    });
+                }
+                this.requestWaiters.clear();
+            };
+
             const onMessage = (event: MessageEvent) => {
                 this.handleMessage(String(event.data));
             };
 
-            const cleanup = () => {
+            const cleanupConnectionListeners = () => {
                 socket.removeEventListener("open", onOpen);
                 socket.removeEventListener("error", onError);
+                socket.removeEventListener("close", onClose);
                 socket.removeEventListener("message", onMessage);
             };
 
             socket.addEventListener("open", onOpen);
             socket.addEventListener("error", onError);
+            socket.addEventListener("close", onClose);
             socket.addEventListener("message", onMessage);
         });
     }

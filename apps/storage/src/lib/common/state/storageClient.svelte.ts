@@ -31,10 +31,14 @@ export async function getStorageClient(): Promise<StorageClient | null> {
         : null;
 }
 
+export async function openStorageBridgeTrustPage(): Promise<void> {
+    await invoke("open_storage_bridge_trust_page");
+}
+
 export function isStorageBridgeNative(url: string): boolean {
     const normalized = normalizeStorageBridgeUrl(url);
     return normalized
-        ? /^wss:\/\/(127\.0\.0\.1|localhost|storage\.local)(:\d+)?$/i.test(
+        ? /^wss:\/\/(127\.0\.0\.1|localhost|storage\.localhost)(:\d+)?$/i.test(
               normalized,
           )
         : false;
@@ -58,7 +62,7 @@ export async function validateStorageBridgeUrl(
     }
 
     const host = parsedUrl.hostname.toLowerCase();
-    const allowedHosts = ["127.0.0.1", "localhost", "storage.local"];
+    const allowedHosts = ["127.0.0.1", "localhost", "storage.localhost"];
 
     if (parsedUrl.protocol !== "wss:") {
         return false;

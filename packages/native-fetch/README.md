@@ -151,7 +151,7 @@ fn handle_deep_link(deep_link: &str) -> Result<(), Box<dyn std::error::Error>> {
             .collect(),
         status: 200,
         status_text: "OK".into(),
-        body: Some(r#"{"bridgeUrl":"wss://storage.local:9443"}"#.into()),
+        body: Some(r#"{"bridgeUrl":"wss://storage.localhost:9443"}"#.into()),
         state: request.state,
     };
 

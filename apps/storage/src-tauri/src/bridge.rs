@@ -9,7 +9,7 @@ use axum::{
     Router,
     extract::ws::{Message, WebSocket},
     extract::{State, WebSocketUpgrade},
-    response::IntoResponse,
+    response::{Html, IntoResponse},
     routing::get,
 };
 use rcgen::{
@@ -22,24 +22,62 @@ use storage_service::StorageService;
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
+use crate::bridge_trust::install_ca_to_user_trust_store;
+
+pub const STORAGE_BRIDGE_HOST: &str = "storage.localhost";
+
+const TRUST_PAGE: &str = "<!DOCTYPE html>\
+<html lang=\"en\">\
+<head>\
+<meta charset=\"utf-8\">\
+<title>Storage Bridge Certificate</title>\
+</head>\
+<body>\
+<h1>Storage bridge certificate</h1>\
+<p>If your browser shows a certificate warning, accept it to allow local web apps to connect.</p>\
+<p>You can close this tab after the page loads without warnings.</p>\
+</body>\
+</html>";
+
 pub fn bridge_cert_path(data_dir: &Path) -> PathBuf {
-    data_dir.join("storage-bridge-cert.pem")
+    data_dir.join("storage-bridge-ca.pem")
+}
+
+fn ca_key_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("storage-bridge-ca.key")
 }
 
 pub fn bridge_url(host: &str, port: u16) -> String {
     format!("wss://{host}:{port}")
 }
 
+pub fn bridge_trust_url(wss_url: &str) -> Option<String> {
+    wss_url
+        .strip_prefix("wss://")
+        .map(|rest| format!("https://{rest}/trust"))
+}
+
+fn host_file_suffix(host: &str) -> String {
+    host.replace('.', "-")
+}
+
+fn server_cert_paths(data_dir: &Path, host: &str) -> (PathBuf, PathBuf, PathBuf) {
+    let suffix = host_file_suffix(host);
+    (
+        data_dir.join(format!("storage-bridge-server-{suffix}.der")),
+        data_dir.join(format!("storage-bridge-server-{suffix}.key")),
+        data_dir.join(format!("storage-bridge-server-{suffix}.pem")),
+    )
+}
+
 pub async fn ensure_storage_bridge_certificate(data_dir: &Path) -> io::Result<PathBuf> {
     let cert_path = bridge_cert_path(data_dir);
-
-    if cert_path.exists() {
-        return Ok(cert_path);
-    }
-
     let ca = load_or_create_ca(data_dir).await?;
-    let server_cert = load_or_create_server_cert("storage.local", data_dir, &ca).await?;
-    fs::write(&cert_path, server_cert.cert_pem.as_bytes())?;
+    let ca_pem = ensure_ca_certificate_pem(data_dir, &ca).await?;
+    fs::write(&cert_path, ca_pem.as_bytes())?;
+    let _server_cert =
+        load_or_create_server_cert(STORAGE_BRIDGE_HOST, data_dir, &ca).await?;
+    let _ = install_ca_to_user_trust_store(data_dir, &cert_path);
 
     Ok(cert_path)
 }
@@ -52,7 +90,7 @@ struct CertificateFiles {
 }
 
 async fn load_or_create_ca(data_dir: &Path) -> io::Result<KeyPair> {
-    let key_path = data_dir.join("storage-bridge-ca.key");
+    let key_path = ca_key_path(data_dir);
 
     if fs::exists(&key_path)? {
         log::debug!("Loading existing CA key from {:?}", key_path);
@@ -67,14 +105,43 @@ async fn load_or_create_ca(data_dir: &Path) -> io::Result<KeyPair> {
     Ok(key)
 }
 
+async fn ensure_ca_certificate_pem(data_dir: &Path, ca_key: &KeyPair) -> io::Result<String> {
+    let ca_pem_path = bridge_cert_path(data_dir);
+    let ca_der_path = ca_der_path(data_dir);
+
+    if fs::exists(&ca_pem_path)? && fs::exists(&ca_der_path)? {
+        return fs::read_to_string(&ca_pem_path);
+    }
+
+    let ca_cert = generate_ca_certificate(ca_key)?;
+    let ca_pem = ca_cert.pem();
+    let ca_der = ca_cert.der().to_vec();
+    fs::write(&ca_pem_path, ca_pem.as_bytes())?;
+    fs::write(&ca_der_path, &ca_der)?;
+    Ok(ca_pem)
+}
+
+fn ca_der_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("storage-bridge-ca.der")
+}
+
+fn generate_ca_certificate(ca_key: &KeyPair) -> io::Result<rcgen::Certificate> {
+    let mut ca_params = CertificateParams::new(vec![]).map_err(io::Error::other)?;
+    ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    ca_params.distinguished_name = DistinguishedName::new();
+    ca_params
+        .distinguished_name
+        .push(DnType::CommonName, "Local Storage Bridge CA");
+
+    ca_params.self_signed(ca_key).map_err(io::Error::other)
+}
+
 async fn load_or_create_server_cert(
     host: &str,
     data_dir: &Path,
     ca_key: &KeyPair,
 ) -> io::Result<CertificateFiles> {
-    let cert_path = data_dir.join("storage-bridge-server.der");
-    let key_path = data_dir.join("storage-bridge-server.key");
-    let cert_pem_path = data_dir.join("storage-bridge-server.pem");
+    let (cert_path, key_path, cert_pem_path) = server_cert_paths(data_dir, host);
 
     if fs::exists(&cert_path)? && fs::exists(&key_path)? && fs::exists(&cert_pem_path)? {
         log::debug!(
@@ -89,7 +156,8 @@ async fn load_or_create_server_cert(
         });
     }
 
-    let mut params = CertificateParams::new(vec![host.to_string()]).map_err(io::Error::other)?;
+    let mut params = CertificateParams::new(vec![host.to_string(), "localhost".to_string()])
+        .map_err(io::Error::other)?;
     params
         .subject_alt_names
         .push(SanType::IpAddress(Ipv4Addr::LOCALHOST.into()));
@@ -246,15 +314,15 @@ impl StorageBridge {
     }
 
     fn build_server_config(data_dir: &Path) -> Result<Arc<rustls::ServerConfig>, String> {
-        let cert_der =
-            fs::read(data_dir.join("storage-bridge-server.der")).map_err(|err| err.to_string())?;
-        let key_der =
-            fs::read(data_dir.join("storage-bridge-server.key")).map_err(|err| err.to_string())?;
+        let (cert_path, key_path, _) = server_cert_paths(data_dir, STORAGE_BRIDGE_HOST);
+        let cert_der = fs::read(&cert_path).map_err(|err| err.to_string())?;
+        let key_der = fs::read(&key_path).map_err(|err| err.to_string())?;
+        let ca_der = fs::read(ca_der_path(data_dir)).map_err(|err| err.to_string())?;
 
         let server_config = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(
-                vec![CertificateDer::from(cert_der)],
+                vec![CertificateDer::from(cert_der), CertificateDer::from(ca_der)],
                 PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key_der)),
             )
             .map_err(|err| err.to_string())?;
@@ -267,6 +335,7 @@ impl StorageBridge {
 
         let app = Router::new()
             .route("/", get(Self::bridge_handler))
+            .route("/trust", get(Self::trust_page_handler))
             .with_state(state);
 
         let listener = TcpListener::bind("127.0.0.1:0")
@@ -275,7 +344,7 @@ impl StorageBridge {
 
         let port = listener.local_addr().map_err(|err| err.to_string())?.port();
 
-        let bridge_url = bridge_url("storage.local", port);
+        let bridge_url = bridge_url(STORAGE_BRIDGE_HOST, port);
         {
             let mut current = self.url.lock().await;
             *current = bridge_url.clone();
@@ -298,6 +367,10 @@ impl StorageBridge {
         State(bridge): State<Arc<Self>>,
     ) -> impl IntoResponse {
         ws.on_upgrade(|socket| Self::handle_bridge_socket(socket, bridge))
+    }
+
+    async fn trust_page_handler() -> Html<&'static str> {
+        Html(TRUST_PAGE)
     }
 
     async fn handle_bridge_socket(mut socket: WebSocket, bridge: Arc<Self>) {
@@ -370,3 +443,46 @@ impl StorageBridge {
 }
 
 pub type StorageBridgeState = tokio::sync::Mutex<StorageBridge>;
+
+pub fn bridge_trust_prompted_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("bridge-trust-prompted")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bridge_url_uses_host_and_port() {
+        assert_eq!(
+            bridge_url(STORAGE_BRIDGE_HOST, 33233),
+            "wss://storage.localhost:33233"
+        );
+    }
+
+    #[test]
+    fn bridge_trust_url_converts_wss_to_https() {
+        assert_eq!(
+            bridge_trust_url("wss://storage.localhost:33233"),
+            Some("https://storage.localhost:33233/trust".to_string())
+        );
+    }
+
+    #[test]
+    fn server_cert_paths_include_host_suffix() {
+        let dir = Path::new("/tmp/storage-data");
+        let (cert, key, pem) = server_cert_paths(dir, STORAGE_BRIDGE_HOST);
+        assert_eq!(
+            cert,
+            dir.join("storage-bridge-server-storage-localhost.der")
+        );
+        assert_eq!(
+            key,
+            dir.join("storage-bridge-server-storage-localhost.key")
+        );
+        assert_eq!(
+            pem,
+            dir.join("storage-bridge-server-storage-localhost.pem")
+        );
+    }
+}

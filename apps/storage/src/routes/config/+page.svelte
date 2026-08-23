@@ -23,7 +23,7 @@
         validateLidpApiUrl,
     } from "$lib/common/state/lidpClient.svelte";
     import { notifications } from "$lib/common/state/notifications.svelte";
-    import { getStorageBridgeUrl } from "$lib/common/state/storageClient.svelte";
+    import { openStorageBridgeTrustPage } from "$lib/common/state/storageClient.svelte";
 
     const form = createForm(configSchema, {
         lidpApiUrl: getLidpApiUrl() ?? "",
@@ -36,10 +36,16 @@
     });
 
     async function showCertificateTrustNotice(): Promise<void> {
-        const url = await getStorageBridgeUrl();
-        if (url && /^wss:\/\//i.test(url)) {
-            window.alert(
-                "The storage bridge uses a self-signed certificate. Open the cert file and trust it before connecting, or the browser will block the WebSocket.",
+        try {
+            await openStorageBridgeTrustPage();
+            notifications.add(
+                "Accept the certificate in your browser, then retry connecting from your web app.",
+                "info",
+            );
+        } catch {
+            notifications.add(
+                "Storage bridge is not running yet. Launch the app and try again.",
+                "error",
             );
         }
     }

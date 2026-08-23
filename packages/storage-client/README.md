@@ -42,7 +42,7 @@ The storage bridge provides simple file read/write capabilities for app-level da
 ```ts
 import { StorageClient, readStorageFile, writeStorageFile } from "@aicacia/storage-client";
 
-const client = StorageClient.create({ url: "wss://storage.local:PORT" });
+const client = StorageClient.create({ url: "wss://storage.localhost:PORT" });
 
 // Write a file to the storage bridge
 await writeStorageFile(client, "example/hello.txt", "Hello, World!");

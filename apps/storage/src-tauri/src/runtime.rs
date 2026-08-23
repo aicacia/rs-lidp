@@ -21,7 +21,11 @@ pub fn run() {
     builder = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
-        .invoke_handler(tauri::generate_handler![app::get_storage_bridge_url])
+        .invoke_handler(tauri::generate_handler![
+            app::get_storage_bridge_url,
+            app::get_storage_bridge_trust_url,
+            app::open_storage_bridge_trust_page,
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
