@@ -39,7 +39,7 @@
 
     const form = createForm(configSchema, {
         lidpApiUrl: getLidpApiUrl() ?? "",
-        storageBridgeUrl: getStorageBridgeUrl(),
+        storageBridgeUrl: getStorageBridgeUrl() ?? "",
     });
 
     $effect(() => {

@@ -17,12 +17,21 @@ export type StorageEvent =
 
 export type StorageClientOptions = {
     url: string;
-    requestUrl?: string;
-    eventUrl?: string;
 };
+
+// Internal protocol types
+type BridgeRequest = StorageRequest & { requestId: number };
+type BridgeResponse = StorageResponse & { requestId: number };
+type BridgeMessage = { requestId: number } | StorageEvent;
 
 function getSocketConstructor(): typeof WebSocket | undefined {
     return globalThis.WebSocket;
+}
+
+let requestIdCounter = 0;
+
+function getNextRequestId(): number {
+    return ++requestIdCounter;
 }
 
 export class PeerSession {
@@ -74,10 +83,108 @@ export class PeerSession {
 }
 
 export class StorageClient {
+    private socket: WebSocket | null = null;
+    private requestWaiters = new Map<
+        number,
+        (response: StorageResponse) => void
+    >();
+    private eventListeners = new Set<(event: StorageEvent) => void>();
+    private socketPromise: Promise<WebSocket> | null = null;
+
     constructor(private readonly options: StorageClientOptions) {}
 
     static create(options: StorageClientOptions): StorageClient {
         return new StorageClient(options);
+    }
+
+    private async ensureSocket(): Promise<WebSocket> {
+        if (this.socket) {
+            if (this.socket.readyState === WebSocket.OPEN) {
+                return this.socket;
+            }
+            this.socket = null;
+            this.socketPromise = null;
+        }
+
+        if (this.socketPromise) {
+            return this.socketPromise;
+        }
+
+        this.socketPromise = this.openSocket();
+        return this.socketPromise;
+    }
+
+    private openSocket(): Promise<WebSocket> {
+        return new Promise((resolve, reject) => {
+            const WebSocketImpl = getSocketConstructor();
+
+            if (!WebSocketImpl) {
+                reject(
+                    new Error("WebSocket is not available in this environment"),
+                );
+                return;
+            }
+
+            const socket = new WebSocketImpl(this.options.url);
+
+            const onOpen = () => {
+                cleanup();
+                this.socket = socket;
+                resolve(socket);
+            };
+
+            const onError = () => {
+                cleanup();
+                this.socket = null;
+                this.socketPromise = null;
+                reject(
+                    new Error(
+                        `Failed to connect to storage bridge at ${this.options.url}`,
+                    ),
+                );
+            };
+
+            const onMessage = (event: MessageEvent) => {
+                this.handleMessage(String(event.data));
+            };
+
+            const cleanup = () => {
+                socket.removeEventListener("open", onOpen);
+                socket.removeEventListener("error", onError);
+                socket.removeEventListener("message", onMessage);
+            };
+
+            socket.addEventListener("open", onOpen);
+            socket.addEventListener("error", onError);
+            socket.addEventListener("message", onMessage);
+        });
+    }
+
+    private handleMessage(data: string): void {
+        try {
+            const parsed = JSON.parse(data);
+
+            // Check if this is a response (has requestId and ok/error properties)
+            if (
+                "requestId" in parsed &&
+                ("ok" in parsed || "error" in parsed)
+            ) {
+                const requestId = parsed.requestId;
+                const waiter = this.requestWaiters.get(requestId);
+                if (waiter) {
+                    this.requestWaiters.delete(requestId);
+                    waiter(parsed as StorageResponse);
+                }
+            } else if ("type" in parsed) {
+                // This is an event
+                const event = parsed as StorageEvent;
+                for (const listener of this.eventListeners) {
+                    listener(event);
+                }
+            }
+        } catch {
+            // Ignore malformed messages
+        }
     }
 
     async connectPeer(peerId: string): Promise<PeerSession> {
@@ -103,83 +210,67 @@ export class StorageClient {
     async request<TResponse = unknown>(
         request: StorageRequest,
     ): Promise<TResponse> {
-        const WebSocketImpl = getSocketConstructor();
+        const socket = await this.ensureSocket();
+        const requestId = getNextRequestId();
 
-        if (!WebSocketImpl) {
-            throw new Error("WebSocket is not available in this environment");
-        }
-
-        const targetUrl = this.options.requestUrl ?? this.options.url;
-        const socket = new WebSocketImpl(targetUrl);
+        const message: BridgeRequest = {
+            ...request,
+            requestId,
+        };
 
         return new Promise<TResponse>((resolve, reject) => {
-            const onOpen = () => {
-                socket.send(JSON.stringify(request));
-            };
+            const timeout = setTimeout(() => {
+                this.requestWaiters.delete(requestId);
+                reject(
+                    new Error(`storage request timeout for ${request.type}`),
+                );
+            }, 30000); // 30 second timeout
 
-            const onMessage = (event: MessageEvent) => {
-                try {
-                    const payload = JSON.parse(String(event.data)) as TResponse;
-                    cleanup();
-                    resolve(payload);
-                } catch (error) {
-                    cleanup();
-                    reject(
-                        error instanceof Error
-                            ? error
-                            : new Error(String(error)),
-                    );
+            this.requestWaiters.set(requestId, (response: StorageResponse) => {
+                clearTimeout(timeout);
+                if (response.ok) {
+                    resolve(response as TResponse);
+                } else {
+                    reject(new Error(response.error));
                 }
-            };
+            });
 
-            const onError = () => {
-                cleanup();
-                reject(new Error(`storage request failed for ${request.type}`));
-            };
-
-            const cleanup = () => {
-                socket.removeEventListener("open", onOpen);
-                socket.removeEventListener("message", onMessage);
-                socket.removeEventListener("error", onError);
-                socket.close();
-            };
-
-            socket.addEventListener("open", onOpen);
-            socket.addEventListener("message", onMessage);
-            socket.addEventListener("error", onError);
+            try {
+                socket.send(JSON.stringify(message));
+            } catch (error) {
+                clearTimeout(timeout);
+                this.requestWaiters.delete(requestId);
+                reject(
+                    error instanceof Error ? error : new Error(String(error)),
+                );
+            }
         });
     }
 
     listen(): AsyncIterable<StorageEvent> {
-        const WebSocketImpl = getSocketConstructor();
-
-        if (!WebSocketImpl) {
-            throw new Error("WebSocket is not available in this environment");
-        }
-
-        const targetUrl = this.options.eventUrl ?? this.options.url;
-        const socket = new WebSocketImpl(targetUrl);
-        const queue: StorageEvent[] = [];
+        const eventQueue: StorageEvent[] = [];
         const waiters: Array<() => void> = [];
 
-        socket.addEventListener("message", (event: MessageEvent) => {
-            try {
-                const payload = JSON.parse(String(event.data)) as StorageEvent;
-                queue.push(payload);
-                const waiter = waiters.shift();
-                if (waiter) {
-                    waiter();
-                }
-            } catch {
-                // ignore malformed event frames until the native bridge begins sending typed payloads
+        const listener = (event: StorageEvent) => {
+            eventQueue.push(event);
+            const waiter = waiters.shift();
+            if (waiter) {
+                waiter();
             }
+        };
+
+        // Ensure socket is open before adding listener
+        this.ensureSocket().catch((error) => {
+            console.error("Failed to open socket for listening", error);
         });
+
+        this.eventListeners.add(listener);
 
         return {
             async *[Symbol.asyncIterator]() {
                 while (true) {
-                    if (queue.length > 0) {
-                        yield queue.shift() as StorageEvent;
+                    if (eventQueue.length > 0) {
+                        yield eventQueue.shift() as StorageEvent;
                         continue;
                     }
 

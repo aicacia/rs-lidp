@@ -41,6 +41,7 @@
         "@aicacia/lidp-client": "workspace:*",
         "@aicacia/lidp-management-client": "workspace:*",
         "@aicacia/oidc-client": "workspace:*",
+        "@aicacia/storage-client": "workspace:*",
         "tauri-plugin-fetch-api": "workspace:*",
         "@aicacia/svelte-forms": "^0.1.1",
         "@aicacia/svelte-headless": "workspace:*",

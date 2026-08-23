@@ -4,6 +4,8 @@ import { getStorageBridgeConfig } from "../state/storageClient.svelte";
 import { redirectToUrl } from "./redirectToUrl";
 
 export async function handleDeepLink(urlStrings: string[]): Promise<void> {
+    console.log("handleDeepLink", urlStrings);
+
     const [urlString] = urlStrings;
     if (!urlString) {
         return;

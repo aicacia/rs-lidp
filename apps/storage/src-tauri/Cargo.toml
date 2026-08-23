@@ -45,7 +45,7 @@ rustls = { version = "0.23", default-features = false, features = [] }
 
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
-tauri-plugin-single-instance = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-opener = { version = "2", default-features = false, features = [] }
 tauri-plugin-fetch-api = { path = "../../../crates/tauri-plugin-fetch-api" }

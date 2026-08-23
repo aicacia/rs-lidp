@@ -30,6 +30,7 @@
 		let onOpenUrlUnlistenFn: UnlistenFn | undefined;
 
 		onOpenUrl(handleDeepLink).then((unlisten) => {
+		    console.log("Registered deep link handler");
 			onOpenUrlUnlistenFn = unlisten;
 		});
 

@@ -7,7 +7,24 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use storage_iroh::{StorageIrohRuntime, StorageRequest, StorageResponse};
+use serde::{Deserialize, Serialize};
+use storage_iroh::{StorageEvent, StorageIrohRuntime, StorageRequest, StorageResponse};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum BridgeMessage {
+    Request {
+        #[serde(flatten)]
+        request: StorageRequest,
+        request_id: u64,
+    },
+    Response {
+        #[serde(flatten)]
+        response: StorageResponse,
+        request_id: u64,
+    },
+    Event(StorageEvent),
+}
 
 #[derive(Debug, Clone)]
 pub struct StorageBridge {
@@ -47,8 +64,7 @@ impl StorageBridge {
         let state = Arc::new(self);
 
         let app = Router::new()
-            .route("/request", get(Self::request_handler))
-            .route("/events", get(Self::event_handler))
+            .route("/bridge", get(Self::bridge_handler))
             .with_state(state);
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:3042")
@@ -62,71 +78,68 @@ impl StorageBridge {
         Ok(())
     }
 
-    async fn request_handler(
+    async fn bridge_handler(
         ws: WebSocketUpgrade,
         State(bridge): State<Arc<Self>>,
     ) -> impl IntoResponse {
-        ws.on_upgrade(|socket| Self::handle_request_socket(socket, bridge))
+        ws.on_upgrade(|socket| Self::handle_bridge_socket(socket, bridge))
     }
 
-    async fn event_handler(
-        ws: WebSocketUpgrade,
-        State(bridge): State<Arc<Self>>,
-    ) -> impl IntoResponse {
-        ws.on_upgrade(|socket| Self::handle_event_socket(socket, bridge))
-    }
-
-    async fn handle_request_socket(mut socket: WebSocket, bridge: Arc<Self>) {
-        while let Some(msg) = socket.recv().await {
-            let Ok(Message::Text(raw)) = msg else {
-                continue;
-            };
-
-            let request = match serde_json::from_str::<StorageRequest>(&raw) {
-                Ok(request) => request,
-                Err(err) => {
-                    let payload = serde_json::to_string(&StorageResponse::Err {
-                        error: format!("invalid request: {err}"),
-                    })
-                    .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"invalid request\"}".to_string());
-
-                    let _ = socket.send(Message::Text(payload.into())).await;
-                    continue;
-                }
-            };
-
-            let response = bridge.handle_request(request).await;
-            let payload = match response {
-                Ok(response) => serde_json::to_string(&response).unwrap_or_else(|_| {
-                    "{\"ok\":false,\"error\":\"response serialization failed\"}".to_string()
-                }),
-                Err(err) => serde_json::to_string(&StorageResponse::Err { error: err })
-                    .unwrap_or_else(|_| {
-                        "{\"ok\":false,\"error\":\"response serialization failed\"}".to_string()
-                    }),
-            };
-
-            if socket.send(Message::Text(payload.into())).await.is_err() {
-                break;
-            }
-        }
-    }
-
-    async fn handle_event_socket(mut socket: WebSocket, bridge: Arc<Self>) {
-        let mut rx = bridge.runtime.subscribe_events();
+    async fn handle_bridge_socket(mut socket: WebSocket, bridge: Arc<Self>) {
+        let mut event_rx = bridge.runtime.subscribe_events();
 
         loop {
-            let Ok(event) = rx.recv().await else {
-                break;
-            };
+            tokio::select! {
+                // Handle incoming WebSocket messages
+                msg = socket.recv() => {
+                    let Some(msg) = msg else {
+                        break;
+                    };
 
-            let payload = match serde_json::to_string(&event) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
+                    let Ok(Message::Text(raw)) = msg else {
+                        continue;
+                    };
 
-            if socket.send(Message::Text(payload.into())).await.is_err() {
-                break;
+                    // Try parsing as a request first
+                    if let Ok(bridge_msg) = serde_json::from_str::<BridgeMessage>(&raw) {
+                        match bridge_msg {
+                            BridgeMessage::Request { request, request_id } => {
+                                let response = bridge.handle_request(request).await;
+                                let response = match response {
+                                    Ok(r) => r,
+                                    Err(err) => StorageResponse::Err { error: err },
+                                };
+
+                                let payload = serde_json::to_string(&BridgeMessage::Response {
+                                    response,
+                                    request_id,
+                                })
+                                .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"serialization failed\"}".to_string());
+
+                                if socket.send(Message::Text(payload.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                            BridgeMessage::Response { .. } => {
+                                // Unexpected response from client, ignore
+                            }
+                            BridgeMessage::Event(_) => {
+                                // Client should not send events, ignore
+                            }
+                        }
+                    }
+                }
+                // Stream events to client
+                Ok(event) = event_rx.recv() => {
+                    let payload = match serde_json::to_string(&BridgeMessage::Event(event)) {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                    if socket.send(Message::Text(payload.into())).await.is_err() {
+                        break;
+                    }
+                }
             }
         }
     }
