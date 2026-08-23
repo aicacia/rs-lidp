@@ -22,12 +22,17 @@ export type {
 } from "./OidcClientMetadata.js";
 export type { OidcClientRegistrationResponse } from "./OidcClientRegistrationResponse.js";
 export type { OidcConfiguration } from "./OidcConfiguration.js";
-export type { NativeFetchInit } from "./util/nativeFetch.js";
+export type {
+    HandleNativeFetchCallbackOptions,
+    NativeFetchInit,
+    NativeRequest,
+    NativeRequestJSON,
+    NativeResponse,
+    NativeResponseJSON,
+} from "@aicacia/native-fetch";
 export {
     handleNativeCallbackRequest,
     handleNativeCallbackRequestUrl,
     handleNativeFetchCallback,
-    type NativeRequestJSON,
-    type NativeResponseJSON,
     nativeFetch,
-} from "./util/nativeFetch.js";
+} from "@aicacia/native-fetch";

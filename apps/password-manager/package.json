@@ -40,6 +40,7 @@
     "dependencies": {
         "@aicacia/lidp-client": "workspace:*",
         "@aicacia/lidp-management-client": "workspace:*",
+        "@aicacia/native-fetch": "workspace:*",
         "@aicacia/oidc-client": "workspace:*",
         "@aicacia/storage-client": "workspace:*",
         "tauri-plugin-fetch-api": "workspace:*",

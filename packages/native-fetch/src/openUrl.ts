@@ -22,14 +22,14 @@ export function openUrl(url: URL, options?: RedirectOptions): Window | null {
             );
         }
         return null;
-    } else {
-        if (window.location) {
-            if (isNative) {
-                window.location.href = urlString;
-            } else {
-                window.location.assign(urlString);
-            }
-        }
-        return null;
     }
+
+    if (window.location) {
+        if (isNative) {
+            window.location.href = urlString;
+        } else {
+            window.location.assign(urlString);
+        }
+    }
+    return null;
 }

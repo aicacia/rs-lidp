@@ -9,10 +9,12 @@ import {
     type Fetch,
 } from "./util/createFetchWithTimeout.js";
 import { generatePkcePair } from "./util/generatePkcePair.js";
-import { generateState } from "./util/generateState.js";
-import { isNativeProtocol } from "./util/isNativeProtocol.js";
-import { nativeFetch } from "./util/nativeFetch.js";
-import { openUrl } from "./util/openUrl.js";
+import {
+    generateState,
+    isNativeProtocol,
+    nativeFetch,
+    openUrl,
+} from "@aicacia/native-fetch";
 import { snakeCase, snakeCaseKeys } from "./util/snakeCaseKeys.js";
 
 export type OidcClientEvents = {

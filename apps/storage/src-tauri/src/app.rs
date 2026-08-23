@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, async_runtime::Mutex};
 use tauri_plugin_fetch_api::{Request, Response};
 use tower_service::Service;
 
-use crate::{bridge::StorageBridge, relay::LocalRelay};
+use crate::bridge::{StorageBridge, ensure_storage_bridge_certificate};
 
 pub fn init_router() -> tauri::Result<Router> {
     let router_state = RouterState::new("storage://app");
@@ -71,11 +71,16 @@ pub async fn request_handler(app_handle: AppHandle, request: Request) -> Respons
 }
 
 pub fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
+    let data_dir = app_handle.path().app_data_dir()?;
+    let _ = tauri::async_runtime::block_on(ensure_storage_bridge_certificate(&data_dir))
+        .map_err(|err| tauri::Error::Io(std::io::Error::other(err)))?;
+
     let bridge = StorageBridge::new();
     let server_bridge = bridge.clone();
+    let bridge_data_dir = data_dir.clone();
 
     tauri::async_runtime::spawn(async move {
-        if let Err(err) = server_bridge.start_server().await {
+        if let Err(err) = server_bridge.start_server(&bridge_data_dir).await {
             log::error!("storage websocket bridge failed to start: {err}");
         }
     });
@@ -84,27 +89,6 @@ pub fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-pub fn init_iroh_rely(app_handle: &AppHandle, _app_config: &AppConfig) -> tauri::Result<()> {
-    let data_dir = app_handle.path().app_data_dir()?;
-
-    let async_app_handle = app_handle.clone();
-    let _async_handle = tauri::async_runtime::spawn(async move {
-        let relay = LocalRelay::start("storage.local", data_dir)
-            .await
-            .expect("failed to start local relay");
-
-        async_app_handle.manage(Mutex::new(Some(relay)));
-    });
-
-    Ok(())
-}
-
-pub async fn shutdown(app_handle: &AppHandle) -> tauri::Result<()> {
-    if let Some(relay_mutex) = app_handle.try_state::<Mutex<Option<LocalRelay>>>() {
-        if let Some(relay) = relay_mutex.lock().await.take() {
-            relay.shutdown().await?;
-        }
-    }
-
+pub async fn shutdown(_app_handle: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }

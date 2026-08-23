@@ -43,6 +43,7 @@
         "@aicacia/svelte-headless": "workspace:*",
         "@aicacia/lidp-client": "workspace:*",
         "@aicacia/lidp-management-client": "workspace:*",
+        "@aicacia/native-fetch": "workspace:*",
         "@aicacia/oidc-client": "workspace:*",
         "valibot": "^1.4.2"
     }

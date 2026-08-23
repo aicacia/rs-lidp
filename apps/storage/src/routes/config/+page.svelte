@@ -48,6 +48,15 @@
         }
     });
 
+    function showCertificateTrustNotice(): void {
+        const url = getStorageBridgeUrl();
+        if (url && /^wss:\/\//i.test(url)) {
+            window.alert(
+                "The storage bridge uses a self-signed certificate. Open the cert file and trust it before connecting, or the browser will block the WebSocket.",
+            );
+        }
+    }
+
     async function onSubmit(event: SubmitEvent) {
         event.preventDefault();
 
@@ -84,11 +93,18 @@
                 <input
                     type="text"
                     aria-label="Storage bridge URL"
-                    placeholder="ws://127.0.0.1:3042"
+                    placeholder="wss://storage.local:43123"
                     bind:value={form.fields.storageBridgeUrl.value}
                 />
                 <Issues issues={form.fields.storageBridgeUrl.issues} />
             </label>
+            <button
+                type="button"
+                class="btn secondary"
+                onclick={showCertificateTrustNotice}
+            >
+                Trust certificate
+            </button>
             <input
                 type="submit"
                 value={m.env_config_save()}

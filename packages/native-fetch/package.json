@@ -1,13 +1,11 @@
 {
-    "name": "@aicacia/oidc-client",
+    "name": "@aicacia/native-fetch",
     "version": "0.1.0",
-    "description": "Aicacia OIDC Client",
+    "description": "Aicacia Native Fetch",
     "keywords": [
         "aicacia",
-        "openid",
-        "connect",
-        "lidp",
-        "client"
+        "native",
+        "fetch"
     ],
     "author": "Nathan Faucett",
     "license": "(MIT OR Apache-2.0)",
@@ -44,10 +42,6 @@
         "hooks": {
             "pre-commit": "pnpm run preCommit"
         }
-    },
-    "dependencies": {
-        "@aicacia/native-fetch": "workspace:*",
-        "eventemitter3": "^5.0.4"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.5.3",

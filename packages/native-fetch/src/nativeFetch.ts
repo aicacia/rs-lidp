@@ -15,8 +15,8 @@ export const NATIVE_FETCH_CHANNEL_NAME = "native-fetch";
 export const NATIVE_FETCH_RESPONSE_EVENT = "native-fetch-response";
 
 export type NativeRequestJSON = {
-    url: URL;
-    headers: HeadersInit;
+    url: string;
+    headers: Record<string, string>;
     method: string;
     body: string | null;
     state: string;
@@ -24,12 +24,18 @@ export type NativeRequestJSON = {
 };
 
 export type NativeResponseJSON = {
-    headers: HeadersInit;
+    headers: Record<string, string>;
     status: number;
     statusText: string;
     body: string | null;
     state: string;
 };
+
+/** Alias for {@link NativeRequestJSON}. */
+export type NativeRequest = NativeRequestJSON;
+
+/** Alias for {@link NativeResponseJSON}. */
+export type NativeResponse = NativeResponseJSON;
 
 async function bodyInitToString(
     body: BodyInit | null | undefined,
@@ -41,6 +47,13 @@ async function bodyInitToString(
         return body;
     }
     return new Response(body).text();
+}
+
+function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
+    if (!headers) {
+        return {};
+    }
+    return Object.fromEntries(new Headers(headers));
 }
 
 export function nativeFetch(
@@ -71,10 +84,8 @@ export async function nativeFetch(
     const body = await bodyInitToString(init?.body);
 
     const native: NativeRequestJSON = {
-        url,
-        headers: init?.headers
-            ? Object.fromEntries(new Headers(init.headers))
-            : {},
+        url: url.href,
+        headers: headersToRecord(init?.headers),
         method: init?.method ?? "GET",
         body,
         state,

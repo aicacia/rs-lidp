@@ -2,7 +2,7 @@
 	import {
 		handleNativeCallbackRequest,
 		type NativeRequest,
-	} from "@aicacia/oidc-client";
+	} from "@aicacia/native-fetch";
 	import { page } from "$app/state";
 	import ClientUpdates from "$lib/common/components/client/ClientUpdates.svelte";
 	import { camelizeKeys } from "$lib/common/util/camelizeKeys";

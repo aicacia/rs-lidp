@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { handleNativeFetchCallback } from '@aicacia/oidc-client';
+	import { handleNativeFetchCallback } from '@aicacia/native-fetch';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 

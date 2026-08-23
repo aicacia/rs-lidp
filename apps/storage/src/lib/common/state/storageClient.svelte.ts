@@ -40,7 +40,9 @@ export function getStorageClient(): StorageClient | null {
 
 export function isStorageBridgeNative(): boolean {
     const url = normalizeStorageBridgeUrl(storageBridgeUrl.item);
-    return url ? url.startsWith("ws://127.0.0.1:3042") : false;
+    return url
+        ? /^wss:\/\/(127\.0\.0\.1|localhost|storage\.local)(:\d+)?$/i.test(url)
+        : false;
 }
 
 export async function validateStorageBridgeUrl(
@@ -60,7 +62,14 @@ export async function validateStorageBridgeUrl(
         return false;
     }
 
-    if (parsedUrl.protocol !== "ws:" && parsedUrl.protocol !== "wss:") {
+    const host = parsedUrl.hostname.toLowerCase();
+    const allowedHosts = ["127.0.0.1", "localhost", "storage.local"];
+
+    if (parsedUrl.protocol !== "wss:") {
+        return false;
+    }
+
+    if (!allowedHosts.includes(host)) {
         return false;
     }
 

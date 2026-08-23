@@ -21,8 +21,6 @@ export type StorageClientOptions = {
 
 // Internal protocol types
 type BridgeRequest = StorageRequest & { requestId: number };
-type BridgeResponse = StorageResponse & { requestId: number };
-type BridgeMessage = { requestId: number } | StorageEvent;
 
 function getSocketConstructor(): typeof WebSocket | undefined {
     return globalThis.WebSocket;

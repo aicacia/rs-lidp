@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { handleNativeFetchCallback } from '@aicacia/oidc-client';
+	import { handleNativeFetchCallback } from '@aicacia/native-fetch';
 	import { page } from '$app/state';
 
 	let callbackError = '';

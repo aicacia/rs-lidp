@@ -43,6 +43,7 @@
         "@lucide/svelte": "^1.24.0",
         "@aicacia/svelte-forms": "^0.1.1",
         "@aicacia/svelte-headless": "workspace:*",
+        "@aicacia/native-fetch": "workspace:*",
         "@aicacia/oidc-client": "workspace:*",
         "@aicacia/lidp-client": "workspace:*",
         "@aicacia/storage-client": "workspace:*",

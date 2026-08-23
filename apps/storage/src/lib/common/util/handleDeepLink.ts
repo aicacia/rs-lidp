@@ -1,4 +1,4 @@
-import { handleNativeCallbackRequestUrl } from "@aicacia/oidc-client";
+import { handleNativeCallbackRequestUrl } from "@aicacia/native-fetch";
 
 import { getStorageBridgeConfig } from "../state/storageClient.svelte";
 import { redirectToUrl } from "./redirectToUrl";

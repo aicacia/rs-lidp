@@ -1,4 +1,4 @@
-import { nativeFetch } from "@aicacia/oidc-client";
+import { nativeFetch } from "@aicacia/native-fetch";
 import { StorageClient } from '@aicacia/storage-client';
 import { createStorage } from "@aicacia/svelte-headless";
 
