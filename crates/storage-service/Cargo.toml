@@ -8,7 +8,11 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-tokio = { version = "1.52", default-features = false, features = ["fs", "rt"] }
+# Logging
+log = { version = "0.4", default-features = false }
+
+# Async filesystem
+ tokio = { version = "1.52", default-features = false, features = ["fs", "rt"] }
 
 [dev-dependencies]
 tokio = { version = "1.52", default-features = false, features = [

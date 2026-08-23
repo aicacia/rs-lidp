@@ -10,6 +10,8 @@ use crate::error::StorageError;
 /// - Rejects empty paths
 /// - All paths are relative to `root`
 pub fn validate_and_resolve(root: &Path, path: &str) -> Result<PathBuf, StorageError> {
+    log::debug!("storage path validation: root={root:?}, path={path:?}");
+
     // Reject empty paths
     if path.is_empty() {
         return Err(StorageError::InvalidPath("empty path".to_string()));
@@ -52,9 +54,11 @@ pub fn validate_and_resolve(root: &Path, path: &str) -> Result<PathBuf, StorageE
 
     // Verify the resolved path is still under root (additional safety check)
     if !resolved.starts_with(root) {
+        log::warn!("storage path rejected after resolution: root={root:?}, resolved={resolved:?}");
         return Err(StorageError::PathTraversal);
     }
 
+    log::debug!("storage path resolved: {path:?} -> {resolved:?}");
     Ok(resolved)
 }
 

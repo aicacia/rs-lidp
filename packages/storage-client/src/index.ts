@@ -128,6 +128,7 @@ export class StorageClient {
             const socket = new WebSocketImpl(this.options.url);
 
             const onOpen = () => {
+                console.debug("[storage-client] WebSocket opened", this.options.url);
                 socket.removeEventListener("open", onOpen);
                 socket.removeEventListener("error", onError);
                 this.socket = socket;
@@ -135,6 +136,7 @@ export class StorageClient {
             };
 
             const onError = () => {
+                console.error("[storage-client] WebSocket error", this.options.url);
                 cleanupConnectionListeners();
                 this.socket = null;
                 this.socketPromise = null;
@@ -146,6 +148,7 @@ export class StorageClient {
             };
 
             const onClose = () => {
+                console.warn("[storage-client] WebSocket closed", this.options.url);
                 cleanupConnectionListeners();
                 if (this.socket === socket) {
                     this.socket = null;
@@ -161,6 +164,7 @@ export class StorageClient {
             };
 
             const onMessage = (event: MessageEvent) => {
+                console.debug("[storage-client] WebSocket message", event.data);
                 this.handleMessage(String(event.data));
             };
 
@@ -254,6 +258,7 @@ export class StorageClient {
             });
 
             try {
+                console.debug("[storage-client] WebSocket send", message);
                 socket.send(JSON.stringify(message));
             } catch (error) {
                 clearTimeout(timeout);

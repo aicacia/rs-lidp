@@ -34,6 +34,10 @@ impl StorageService {
     /// Truncates the file if it already exists.
     /// The path is validated and resolved relative to the service root.
     pub async fn write_file(&self, path: &str, content: &[u8]) -> Result<(), StorageError> {
+        log::info!(
+            "storage write requested: path={path:?}, bytes={}",
+            content.len()
+        );
         let resolved = validate_and_resolve(&self.root, path)?;
 
         // Create parent directories if they don't exist
@@ -45,6 +49,7 @@ impl StorageService {
 
         // Write the file
         tokio::fs::write(&resolved, content).await?;
+        log::info!("storage write completed: path={resolved:?}");
         Ok(())
     }
 }

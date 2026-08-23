@@ -75,8 +75,7 @@ pub async fn ensure_storage_bridge_certificate(data_dir: &Path) -> io::Result<Pa
     let ca = load_or_create_ca(data_dir).await?;
     let ca_pem = ensure_ca_certificate_pem(data_dir, &ca).await?;
     fs::write(&cert_path, ca_pem.as_bytes())?;
-    let _server_cert =
-        load_or_create_server_cert(STORAGE_BRIDGE_HOST, data_dir, &ca).await?;
+    let _server_cert = load_or_create_server_cert(STORAGE_BRIDGE_HOST, data_dir, &ca).await?;
     let _ = install_ca_to_user_trust_store(data_dir, &cert_path);
 
     Ok(cert_path)
@@ -209,11 +208,13 @@ enum BridgeMessage {
     Request {
         #[serde(flatten)]
         request: StorageRequest,
+        #[serde(rename = "requestId")]
         request_id: u64,
     },
     Response {
         #[serde(flatten)]
         response: StorageResponse,
+        #[serde(rename = "requestId")]
         request_id: u64,
     },
     Event(StorageEvent),
@@ -272,7 +273,9 @@ impl StorageBridge {
     }
 
     pub async fn handle_request(&self, request: StorageRequest) -> Result<StorageResponse, String> {
-        match request {
+        log::info!("storage bridge dispatching request: {request:?}");
+
+        let result = match request {
             StorageRequest::ReadFile { path } => {
                 let bytes = self
                     .storage
@@ -297,8 +300,12 @@ impl StorageBridge {
                     StorageRequest::RemoveDevice { device_id } => {
                         self.runtime.remove_device(&device_id).await?
                     }
-                    StorageRequest::ConnectPeer { peer_id } => self.runtime.connect_peer(&peer_id).await?,
-                    StorageRequest::SyncPeer { peer_id } => self.runtime.sync_peer(&peer_id).await?,
+                    StorageRequest::ConnectPeer { peer_id } => {
+                        self.runtime.connect_peer(&peer_id).await?
+                    }
+                    StorageRequest::SyncPeer { peer_id } => {
+                        self.runtime.sync_peer(&peer_id).await?
+                    }
                     StorageRequest::SendMessage { peer_id, payload } => {
                         self.runtime.send_message(&peer_id, &payload).await?
                     }
@@ -310,7 +317,13 @@ impl StorageBridge {
 
                 Ok(StorageResponse::success_event(event))
             }
+        };
+
+        match &result {
+            Ok(response) => log::info!("storage bridge request completed: {response:?}"),
+            Err(error) => log::error!("storage bridge request failed: {error}"),
         }
+        result
     }
 
     fn build_server_config(data_dir: &Path) -> Result<Arc<rustls::ServerConfig>, String> {
@@ -387,8 +400,10 @@ impl StorageBridge {
                         continue;
                     };
 
-                    if let Ok(bridge_msg) = serde_json::from_str::<BridgeMessage>(&raw) {
-                        match bridge_msg {
+                    log::info!("storage bridge received websocket frame: {raw}");
+
+                    match serde_json::from_str::<BridgeMessage>(&raw) {
+                        Ok(bridge_msg) => match bridge_msg {
                             BridgeMessage::Request { request, request_id } => {
                                 let response = bridge.handle_request(request).await;
                                 let response = match response {
@@ -414,7 +429,9 @@ impl StorageBridge {
                                     }
                                 };
 
+                                log::info!("storage bridge sending websocket response: {payload}");
                                 if socket.send(Message::Text(payload.into())).await.is_err() {
+                                    log::error!("storage bridge failed to send websocket response");
                                     break;
                                 }
                             }
@@ -424,6 +441,9 @@ impl StorageBridge {
                             BridgeMessage::Event(_) => {
                                 // Client should not send events, ignore
                             }
+                        },
+                        Err(error) => {
+                            log::error!("storage bridge rejected websocket frame: {error}");
                         }
                     }
                 }
@@ -453,6 +473,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bridge_message_uses_camel_case_request_id() {
+        let message = serde_json::json!({
+            "type": "writeFile",
+            "path": "example/hello.txt",
+            "content": "Hello",
+            "requestId": 1,
+        });
+        let parsed = serde_json::from_value::<BridgeMessage>(message).unwrap();
+        assert!(matches!(
+            parsed,
+            BridgeMessage::Request { request_id: 1, .. }
+        ));
+    }
+
+    #[test]
     fn bridge_url_uses_host_and_port() {
         assert_eq!(
             bridge_url(STORAGE_BRIDGE_HOST, 33233),
@@ -476,13 +511,7 @@ mod tests {
             cert,
             dir.join("storage-bridge-server-storage-localhost.der")
         );
-        assert_eq!(
-            key,
-            dir.join("storage-bridge-server-storage-localhost.key")
-        );
-        assert_eq!(
-            pem,
-            dir.join("storage-bridge-server-storage-localhost.pem")
-        );
+        assert_eq!(key, dir.join("storage-bridge-server-storage-localhost.key"));
+        assert_eq!(pem, dir.join("storage-bridge-server-storage-localhost.pem"));
     }
 }
