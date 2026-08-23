@@ -1,14 +1,14 @@
-import { getUserManager } from "$lib/common/state/user.svelte";
 import { redirect } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 import { notifications } from "$lib/common/state/notifications.svelte";
+import { getOidcClient } from "$lib/common/state/oidc.svelte";
 
 export const load: PageLoad = async (event) => {
     await event.parent();
 
     try {
-        const userManager = await getUserManager();
-        await userManager.signinCallback(event.url.toString());
+        const oidcClient = getOidcClient();
+        await oidcClient.handleSigninCallback(event.url);
     } catch (e) {
         if (e instanceof Error) {
             notifications.add(e.message);

@@ -54,7 +54,8 @@ lidp-service = { path = "./crates/lidp-service", default-features = false, featu
 ] }
 
 # Storage
-storage-server = { path = "./crates/storage-server", default-features = false, features = [] }
+storage-server = { path = "./crates/storage-server", default-features = false, features = [
+] }
 
 # Database`
 libsql = { version = "0.9", default-features = false, features = [] }
@@ -114,10 +115,11 @@ members = [
   "crates/lidp-model",
   "crates/lidp-server",
   "crates/lidp-service",
+  "crates/storage-iroh",
   "crates/storage-server",
   "crates/tauri-plugin-fetch-api",
   "apps/lidp/src-tauri",
-  "apps/storage/src-tauri"
+  "apps/storage/src-tauri",
 ]
 
 [workspace.package]

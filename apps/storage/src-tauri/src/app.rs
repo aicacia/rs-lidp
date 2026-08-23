@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, async_runtime::Mutex};
 use tauri_plugin_fetch_api::{Request, Response};
 use tower_service::Service;
 
-use crate::relay::LocalRelay;
+use crate::{bridge::StorageBridge, relay::LocalRelay};
 
 pub fn init_router() -> tauri::Result<Router> {
     let router_state = RouterState::new("storage://app");
@@ -68,6 +68,20 @@ pub async fn request_handler(app_handle: AppHandle, request: Request) -> Respons
             response
         }
     }
+}
+
+pub fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
+    let bridge = StorageBridge::new();
+    let server_bridge = bridge.clone();
+
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = server_bridge.start_server().await {
+            log::error!("storage websocket bridge failed to start: {err}");
+        }
+    });
+
+    app_handle.manage(Mutex::new(bridge));
+    Ok(())
 }
 
 pub fn init_iroh_rely(app_handle: &AppHandle, _app_config: &AppConfig) -> tauri::Result<()> {

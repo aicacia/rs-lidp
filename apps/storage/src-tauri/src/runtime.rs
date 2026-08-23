@@ -33,12 +33,13 @@ pub fn run() {
                 }
             }
             if cfg!(any(windows, target_os = "linux")) {
-                let _ = app.deep_link().register_all();
+                app.deep_link().register_all()?;
             }
 
             let app_config =
                 app::init_app_config(app.handle(), app.handle().path().app_config_dir()?)?;
 
+            app::init_storage_bridge(app.handle())?;
             init_iroh_rely(app.handle(), &app_config)?;
 
             let router = app::init_router()?;

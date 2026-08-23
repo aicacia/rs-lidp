@@ -1,3 +1,3 @@
 import { createNotifications } from "@aicacia/svelte-headless";
 
-export const notifications = createNotifications<Notification>();
+export const notifications = createNotifications();

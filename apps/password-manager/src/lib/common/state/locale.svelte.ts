@@ -1,7 +1,7 @@
 import {
     getLocale as getParaglideLocale,
-    setLocale as setParaglideLocale,
     type Locale,
+    setLocale as setParaglideLocale,
 } from "$lib/paraglide/runtime";
 
 let locale = $state<Locale>(getParaglideLocale());
