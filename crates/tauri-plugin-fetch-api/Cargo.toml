@@ -1,11 +1,12 @@
 [package]
 name = "tauri-plugin-fetch-api"
 version = "0.1.0"
-authors = ["nathanfaucett@gmail.com"]
-description = ""
-edition = "2024"
-rust-version = "1.97"
-exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 links = "tauri-plugin-fetch-api"
 
 [lib]

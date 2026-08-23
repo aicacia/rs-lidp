@@ -3285,7 +3285,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3578,15 +3578,20 @@ dependencies = [
 name = "iroh-client-wasm"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "console_error_panic_hook",
+ "ed25519-dalek",
  "getrandom 0.3.4",
  "iroh",
  "iroh-gossip",
  "iroh-tickets",
+ "js-sys",
  "n0-future",
  "serde",
  "serde-wasm-bindgen 0.6.5",
+ "serde_json",
  "thiserror 1.0.69",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "tracing-subscriber-wasm",
@@ -9319,8 +9324,8 @@ dependencies = [
  "log",
  "serde",
  "thiserror 2.0.19",
- "windows 0.61.3",
- "windows-core 0.61.2",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]

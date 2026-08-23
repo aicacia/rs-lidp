@@ -1,4 +1,4 @@
-ARG RUST_IMAGE=rust:1.97-trixie
+ARG RUST_IMAGE=rust:1.98-trixie
 FROM ${RUST_IMAGE} AS chef
 
 RUN apt-get update && apt-get -yq upgrade
