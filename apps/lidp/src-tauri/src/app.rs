@@ -226,16 +226,17 @@ async fn prompt_bridge_cert_trust_if_needed(app_handle: AppHandle, data_dir: std
     }
 }
 
-pub fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
+pub async fn init_storage_bridge(app_handle: &AppHandle) -> tauri::Result<()> {
     let data_dir = app_handle.path().app_data_dir()?;
-    let _ = tauri::async_runtime::block_on(ensure_storage_bridge_certificate(&data_dir))
+    ensure_storage_bridge_certificate(&data_dir)
+        .await
         .map_err(|err| tauri::Error::Io(io::Error::other(err)))?;
     let files_dir = data_dir.join("files");
     if !files_dir.exists() {
         fs::create_dir_all(&files_dir)?;
     }
 
-    let bridge = StorageBridge::new(files_dir);
+    let bridge = StorageBridge::new(files_dir).await;
     let server_bridge = bridge.clone();
     let bridge_data_dir = data_dir.clone();
     tauri::async_runtime::spawn(async move {

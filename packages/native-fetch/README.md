@@ -1,6 +1,6 @@
 # @aicacia/native-fetch
 
-Bridge HTTP-style requests between a web app and a native application using custom URL schemes (for example `storage://`, `lidp://`).
+Bridge HTTP-style requests between a web app and a native application using custom URL schemes (for example `lidp://`, `lidp://`).
 
 The browser cannot call custom protocol URLs with `fetch()`. This package defines a small callback protocol: the web page encodes the desired request in a deep link, the native app performs the work, then opens an HTTP(S) callback URL that returns the response to the waiting page.
 
@@ -12,7 +12,7 @@ sequenceDiagram
     participant Native as Native app
     participant Callback as /native-callback page
 
-    Web->>Web: nativeFetch("storage://app/config")
+    Web->>Web: nativeFetch("lidp://app/config")
     Web->>Native: Open deep link with ?native={request}
     Native->>Native: Parse request, run handler
     Native->>Callback: Open callbackUrl?native={response}
@@ -33,14 +33,14 @@ The web client calls `nativeFetch(url, init?)`. The library:
 Example deep link opened by the browser:
 
 ```text
-storage://app/config?native=%7B%22url%22%3A%22storage%3A%2F%2Fapp%2Fconfig%22%2C...%7D
+lidp://app/config?native=%7B%22url%22%3A%22storage%3A%2F%2Fapp%2Fconfig%22%2C...%7D
 ```
 
 Decoded `native` query value:
 
 ```json
 {
-  "url": "storage://app/config",
+  "url": "lidp://app/config",
   "headers": { "accept": "application/json" },
   "method": "GET",
   "body": null,
@@ -188,7 +188,7 @@ pnpm add @aicacia/native-fetch
 ```typescript
 import { nativeFetch } from "@aicacia/native-fetch";
 
-const response = await nativeFetch("storage://app/config", {
+const response = await nativeFetch("lidp://app/config", {
     method: "GET",
     headers: { accept: "application/json" },
     timeout: 30_000,

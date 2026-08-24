@@ -209,6 +209,27 @@ importers:
         specifier: ^1.0.0
         version: 1.1.0(vite@8.2.0(@types/node@26.1.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  crates/iroh-client-wasm: {}
+
+  crates/tauri-plugin-fetch-api:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.0.0
+        version: 2.11.1
+    devDependencies:
+      '@rollup/plugin-typescript':
+        specifier: ^12.3.0
+        version: 12.3.0(rollup@4.62.4)(tslib@2.8.1)(typescript@6.0.3)
+      rollup:
+        specifier: ^4.62.4
+        version: 4.62.4
+      tslib:
+        specifier: ^2.8.1
+        version: 2.8.1
+      typescript:
+        specifier: ^6.0.0
+        version: 6.0.3
+
   packages/iroh-client:
     dependencies:
       '@aicacia/iroh-client-wasm':

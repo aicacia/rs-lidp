@@ -41,7 +41,7 @@ pub fn run() {
 
             let app_config =
                 app::init_app_config(app.handle(), app.handle().path().app_config_dir()?)?;
-            app::init_storage_bridge(app.handle())?;
+            tauri::async_runtime::block_on(app::init_storage_bridge(app.handle()))?;
 
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {

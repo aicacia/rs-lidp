@@ -52,7 +52,29 @@ pub fn validate_and_resolve(root: &Path, path: &str) -> Result<PathBuf, StorageE
     // Resolve the path relative to root
     let resolved = root.join(path);
 
-    // Verify the resolved path is still under root (additional safety check)
+    // Check every existing component without following links. This protects both
+    // reads and write targets whose parent directory already exists.
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let mut current = canonical_root.clone();
+    for component in path_obj.components() {
+        let Component::Normal(component) = component else {
+            continue;
+        };
+        current.push(component);
+        if current.try_exists().map_err(StorageError::from)? {
+            let metadata = std::fs::symlink_metadata(&current).map_err(StorageError::from)?;
+            if metadata.file_type().is_symlink() {
+                return Err(StorageError::InvalidPath(
+                    "symbolic links are not allowed".to_string(),
+                ));
+            }
+            let canonical = current.canonicalize().map_err(StorageError::from)?;
+            if !canonical.starts_with(&canonical_root) {
+                return Err(StorageError::PathTraversal);
+            }
+        }
+    }
+
     if !resolved.starts_with(root) {
         log::warn!("storage path rejected after resolution: root={root:?}, resolved={resolved:?}");
         return Err(StorageError::PathTraversal);

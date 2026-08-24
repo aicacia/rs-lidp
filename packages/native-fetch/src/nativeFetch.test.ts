@@ -6,14 +6,14 @@ import {
 } from "./nativeFetch.js";
 
 test("isNativeProtocol treats custom schemes as native", () => {
-    expect(isNativeProtocol(new URL("storage://app/config"))).toBe(true);
+    expect(isNativeProtocol(new URL("lidp://app/config"))).toBe(true);
     expect(isNativeProtocol(new URL("https://example.com"))).toBe(false);
 });
 
 test("handleNativeCallbackRequest builds callback URL with response payload", async () => {
     const callbackUrl = await handleNativeCallbackRequest(
         {
-            url: "storage://app/config",
+            url: "lidp://app/config",
             headers: { accept: "application/json" },
             method: "GET",
             body: null,
@@ -47,14 +47,14 @@ test("handleNativeCallbackRequest builds callback URL with response payload", as
 
 test("handleNativeCallbackRequestUrl parses native request from deep link", async () => {
     const request = {
-        url: "storage://app/config",
+        url: "lidp://app/config",
         headers: {},
         method: "GET",
         body: null,
         state: "state-1",
         callbackUrl: "https://app.example/native-callback",
     };
-    const deepLink = new URL("storage://app/config");
+    const deepLink = new URL("lidp://app/config");
     deepLink.searchParams.set("native", JSON.stringify(request));
 
     const callbackUrl = await handleNativeCallbackRequestUrl(
@@ -73,7 +73,7 @@ test("handleNativeCallbackRequestUrl parses native request from deep link", asyn
 test("handleNativeCallbackRequest maps handler errors to 500 responses", async () => {
     const callbackUrl = await handleNativeCallbackRequest(
         {
-            url: "storage://app/config",
+            url: "lidp://app/config",
             headers: {},
             method: "GET",
             body: null,

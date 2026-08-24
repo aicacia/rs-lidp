@@ -1,5 +1,6 @@
 pub mod error;
 pub mod fs;
+pub mod policy;
 pub mod service;
 
 pub use error::StorageError;

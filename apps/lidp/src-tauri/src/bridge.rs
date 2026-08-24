@@ -6,6 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use async_trait::async_trait;
 use axum::{
     Router,
     extract::ws::{Message, WebSocket},
@@ -13,7 +14,8 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
-use lidp_service::oauth2::decode_jwt;
+use lidp_model::contract::JwkPublic;
+use lidp_service::oauth2::{decode_jwt, verify_jwt};
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, Issuer, KeyPair, SanType,
 };
@@ -263,6 +265,7 @@ pub struct StorageBridge {
     storage: Arc<StorageService>,
     url: Arc<tokio::sync::Mutex<String>>,
     registry: Arc<libsql::Database>,
+    jwt_verifier: Option<Arc<StorageJwtVerifier>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -274,40 +277,218 @@ struct StorageSessionClaims {
     nbf: i64,
 }
 
+#[async_trait]
+pub trait PrincipalKeyProvider: Send + Sync {
+    async fn public_key(
+        &self,
+        issuer: &str,
+        key_id: u32,
+        candidate: &JwkPublic,
+    ) -> Result<JwkPublic, String>;
+}
+
+#[derive(Debug, Clone)]
+pub struct SqlitePrincipalKeyProvider {
+    database: Arc<libsql::Database>,
+}
+
+impl SqlitePrincipalKeyProvider {
+    pub async fn new(database: Arc<libsql::Database>) -> Result<Self, String> {
+        storage_model::migrate::up(&database)
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(Self { database })
+    }
+
+    pub async fn put_issuer(&self, issuer: &str) -> Result<(), String> {
+        let connection = self.database.connect().map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "INSERT INTO storage_issuers (issuer, revoked_at) VALUES (?, NULL) ON CONFLICT(issuer) DO UPDATE SET revoked_at = NULL",
+                libsql::params![issuer],
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    pub async fn put_key(&self, issuer: &str, key: &JwkPublic) -> Result<(), String> {
+        let public_key = serde_json::to_string(&key.params).map_err(|error| error.to_string())?;
+        self.put_issuer(issuer).await?;
+        let connection = self.database.connect().map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "INSERT INTO storage_issuer_keys (issuer, key_id, public_key, revoked_at) VALUES (?, ?, ?, NULL) ON CONFLICT(issuer, key_id) DO UPDATE SET public_key = excluded.public_key, revoked_at = NULL",
+                libsql::params![issuer, key.kid as i64, public_key],
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    pub async fn revoke_issuer(&self, issuer: &str) -> Result<(), String> {
+        let connection = self.database.connect().map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "UPDATE storage_issuers SET revoked_at = unixepoch() WHERE issuer = ?",
+                libsql::params![issuer],
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    pub async fn revoke_key(&self, issuer: &str, key_id: u32) -> Result<(), String> {
+        let connection = self.database.connect().map_err(|error| error.to_string())?;
+        connection
+            .execute(
+                "UPDATE storage_issuer_keys SET revoked_at = unixepoch() WHERE issuer = ? AND key_id = ?",
+                libsql::params![issuer, key_id as i64],
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl PrincipalKeyProvider for SqlitePrincipalKeyProvider {
+    async fn public_key(
+        &self,
+        issuer: &str,
+        key_id: u32,
+        candidate: &JwkPublic,
+    ) -> Result<JwkPublic, String> {
+        let connection = self.database.connect().map_err(|error| error.to_string())?;
+        let mut rows = connection
+            .query(
+                "SELECT k.public_key FROM storage_issuers i JOIN storage_issuer_keys k ON k.issuer = i.issuer WHERE i.issuer = ? AND i.revoked_at IS NULL AND k.key_id = ? AND k.revoked_at IS NULL LIMIT 1",
+                libsql::params![issuer, key_id as i64],
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        let Some(row) = rows.next().await.map_err(|error| error.to_string())? else {
+            return Err("JWT signing key is unknown or revoked".to_string());
+        };
+        let public_key = row.get::<String>(0).map_err(|error| error.to_string())?;
+        let candidate_key =
+            serde_json::to_string(&candidate.params).map_err(|error| error.to_string())?;
+        if public_key != candidate_key {
+            return Err("JWT public key is not trusted for this issuer".to_string());
+        }
+        Ok(candidate.clone())
+    }
+}
+
+#[derive(Clone)]
+pub struct StorageJwtVerifier {
+    key_provider: Arc<dyn PrincipalKeyProvider>,
+    issuer: String,
+    audience: String,
+}
+
+impl std::fmt::Debug for StorageJwtVerifier {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("StorageJwtVerifier")
+            .field("issuer", &self.issuer)
+            .field("audience", &self.audience)
+            .finish()
+    }
+}
+
+impl StorageJwtVerifier {
+    pub fn new(
+        key_provider: Arc<dyn PrincipalKeyProvider>,
+        issuer: impl Into<String>,
+        audience: impl Into<String>,
+    ) -> Self {
+        Self {
+            key_provider,
+            issuer: issuer.into(),
+            audience: audience.into(),
+        }
+    }
+
+    async fn verify(&self, token: &str) -> Result<StorageSessionClaims, String> {
+        let (untrusted_header, untrusted_claims) = decode_jwt::<StorageSessionClaims>(token)
+            .map_err(|error| format!("invalid JWT: {error:?}"))?;
+        if untrusted_claims.iss != self.issuer {
+            return Err("JWT issuer mismatch".to_string());
+        }
+        let candidate = untrusted_header
+            .jwk
+            .as_ref()
+            .ok_or_else(|| "JWT is missing its public JWK".to_string())?;
+        let key = self
+            .key_provider
+            .public_key(&untrusted_claims.iss, untrusted_header.kid, candidate)
+            .await?;
+        let (header, claims) = verify_jwt::<StorageSessionClaims>(&key, token)
+            .map_err(|error| format!("invalid JWT: {error:?}"))?;
+        if header.alg != "ES256K" {
+            return Err("unsupported JWT algorithm".to_string());
+        }
+        if header.kid != key.kid {
+            return Err("JWT key id mismatch".to_string());
+        }
+        if claims.iss != self.issuer {
+            return Err("JWT issuer mismatch".to_string());
+        }
+        if claims.aud != self.audience {
+            return Err("JWT audience mismatch".to_string());
+        }
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_secs() as i64;
+        if claims.nbf > now {
+            return Err("JWT is not yet valid".to_string());
+        }
+        if claims.exp <= now {
+            return Err("JWT has expired".to_string());
+        }
+        if claims.sub.trim().is_empty() {
+            return Err("JWT subject is empty".to_string());
+        }
+        Ok(claims)
+    }
+}
+
 impl StorageBridge {
-    pub fn new(files_dir: PathBuf) -> Self {
+    pub async fn new(files_dir: PathBuf) -> Self {
         let registry_path = files_dir.join("known-hosts.sqlite");
-        let registry = tokio::runtime::Handle::current().block_on(async {
+        let registry = Arc::new(
             libsql::Builder::new_local(registry_path.to_string_lossy().as_ref())
                 .build()
                 .await
-                .expect("storage known-host registry should initialize")
-        });
+                .expect("storage known-host registry should initialize"),
+        );
 
-        let registry = Arc::new(registry);
-        let registry_for_init = registry.clone();
-        let _ = tokio::runtime::Handle::current().block_on(async move {
-            let conn = registry_for_init.connect().expect("storage registry connection");
-            let _ = conn
-                .execute(
-                    "CREATE TABLE IF NOT EXISTS known_hosts (host TEXT PRIMARY KEY, created_at INTEGER NOT NULL DEFAULT (unixepoch())) STRICT;",
-                    libsql::params![],
-                )
-                .await;
-            Ok::<(), String>(())
-        });
+        let conn = registry.connect().expect("storage registry connection");
+        let _ = conn
+            .execute(
+                "CREATE TABLE IF NOT EXISTS known_hosts (host TEXT PRIMARY KEY, created_at INTEGER NOT NULL DEFAULT (unixepoch())) STRICT;",
+                libsql::params![],
+            )
+            .await;
 
         let bridge = Self {
             runtime: StorageIrohRuntime::new(),
             storage: Arc::new(StorageService::new(files_dir)),
             url: Arc::new(tokio::sync::Mutex::new(String::new())),
             registry,
+            jwt_verifier: None,
         };
 
-        let _ = tokio::runtime::Handle::current()
-            .block_on(async { bridge.remember_host(STORAGE_BRIDGE_HOST).await });
+        let _ = bridge.remember_host(STORAGE_BRIDGE_HOST).await;
 
         bridge
+    }
+
+    pub fn with_jwt_verifier(mut self, verifier: StorageJwtVerifier) -> Self {
+        self.jwt_verifier = Some(Arc::new(verifier));
+        self
     }
 
     pub async fn remember_host(&self, host: &str) -> Result<(), String> {
@@ -359,32 +540,11 @@ impl StorageBridge {
             return Err(format!("unknown host: {host}"));
         }
 
-        let (_, claims) = decode_jwt::<StorageSessionClaims>(token)
-            .map_err(|error| format!("invalid JWT: {:?}", error))?;
-
-        if claims.iss != host {
-            return Err(format!(
-                "JWT issuer mismatch: expected {host}, got {}",
-                claims.iss
-            ));
-        }
-
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|error| error.to_string())?
-            .as_secs() as i64;
-
-        if claims.nbf > now {
-            return Err("JWT is not yet valid".to_string());
-        }
-
-        if claims.exp <= now {
-            return Err("JWT has expired".to_string());
-        }
-
-        if claims.sub.trim().is_empty() {
-            return Err("JWT subject is empty".to_string());
-        }
+        let verifier = self
+            .jwt_verifier
+            .as_ref()
+            .ok_or_else(|| "storage bridge JWT verifier is not configured".to_string())?;
+        let claims = verifier.verify(token).await?;
 
         let session_storage = self
             .storage
@@ -662,7 +822,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&temp_dir);
         std::fs::create_dir_all(&temp_dir).unwrap();
 
-        let bridge = StorageBridge::new(temp_dir.join("files"));
+        let bridge = StorageBridge::new(temp_dir.join("files")).await;
         bridge.remember_host("trusted.example").await.unwrap();
 
         assert!(bridge.is_host_known("trusted.example").await.unwrap());

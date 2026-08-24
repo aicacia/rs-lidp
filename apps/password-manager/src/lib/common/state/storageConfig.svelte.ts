@@ -29,7 +29,7 @@ export function getStorageBridgeUrl(): string | null {
 export async function loadStorageBridgeConfig(): Promise<StorageBridgeConfig | null> {
     try {
         // Get the bridge URL from the bridge-url endpoint
-        const bridgeUrlResponse = await nativeFetch("storage://app/bridge-url");
+        const bridgeUrlResponse = await nativeFetch("lidp://app/bridge-url");
         const bridgeUrlData = (await bridgeUrlResponse.json()) as {
             bridgeUrl: string;
         };

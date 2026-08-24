@@ -23,6 +23,8 @@ pub struct JwtHeader {
     pub alg: String,
     pub typ: String,
     pub kid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jwk: Option<JwkPublic>,
 }
 
 const JWT_HEADER_ALG: &str = "ES256K";
@@ -36,6 +38,7 @@ where
         alg: JWT_HEADER_ALG.to_string(),
         typ: JWT_HEADER_TYP.to_string(),
         kid: jwk.kid,
+        jwk: None,
     };
 
     let header_encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).map_err(|error| {
