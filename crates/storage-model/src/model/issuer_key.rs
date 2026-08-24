@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct KeyLookup {
+pub struct IssuerKey {
     pub issuer: String,
     pub key_id: u32,
     pub public_key: String,
