@@ -120,7 +120,6 @@ members = [
   "crates/storage-service",
   "crates/tauri-plugin-fetch-api",
   "apps/lidp/src-tauri",
-  "apps/storage/src-tauri",
 ]
 
 [workspace.package]

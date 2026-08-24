@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "lidp",
+  "productName": "LIdP",
   "version": "0.1.0",
   "identifier": "com.aicacia.lidp",
   "build": {
@@ -41,16 +41,16 @@
 		"deep-link": {
 			"mobile": [
 				{
-					"scheme": ["lidp"],
+					"scheme": ["lidp", "storage"],
 					"appLink": false
 				}
 			],
 			"desktop": {
-				"schemes": ["lidp"]
+				"schemes": ["lidp", "storage"]
 			}
 		},
 		"cli": {
-			"description": "Local First Identity Provider Application",
+			"description": "Local-first identity, management, and storage application",
 			"args": [
 				{
 					"name": "config",

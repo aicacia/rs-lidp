@@ -1,15 +1,15 @@
 <script lang="ts" module>
-	import type { StandardSchemaV1 } from '@standard-schema/spec';
+	export interface IssueLike {
+		message: string;
+	}
 
-	export interface IssuesProps<V extends StandardSchemaV1.BaseSchema<unknown, unknown, StandardSchemaV1.BaseIssue<unknown>>> {
-		issues: StandardSchemaV1.Issue<V>[];
+	export interface IssuesProps {
+		issues: readonly IssueLike[];
 	}
 </script>
 
 <script lang="ts">
-	type V = $$Generic<v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>;
-
-	let { issues }: IssuesProps<V> = $props();
+	let { issues }: IssuesProps = $props();
 </script>
 
 {#if issues.length > 0}

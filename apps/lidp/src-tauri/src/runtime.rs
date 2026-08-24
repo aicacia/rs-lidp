@@ -11,16 +11,19 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _r: tauri::Result<()> = w.set_focus();
-                let _ = _r;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
             }
         }));
     }
 
-    builder = builder
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
+        .invoke_handler(tauri::generate_handler![
+            app::get_storage_bridge_url,
+            app::open_storage_bridge_trust_page,
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -33,46 +36,39 @@ pub fn run() {
                 }
             }
             if cfg!(any(windows, target_os = "linux")) {
-                let _ = app.deep_link().register_all();
+                app.deep_link().register_all()?;
             }
 
             let app_config =
                 app::init_app_config(app.handle(), app.handle().path().app_config_dir()?)?;
+            app::init_storage_bridge(app.handle())?;
 
             let app_handle = app.handle().clone();
-            let _async_handle = tauri::async_runtime::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 let database = app::init_datebase(app_handle.clone(), app_config.clone())
                     .await
-                    .expect("database must be initted");
+                    .expect("database must initialize");
                 let router =
-                    app::init_router(app_config, database).expect("router must be initted");
-
+                    app::init_router(app_config, database).expect("router must initialize");
                 app_handle.manage(Mutex::new(router));
             });
 
             app.handle()
                 .plugin(tauri_plugin_fetch_api::init(app::request_handler))?;
-
             Ok(())
         })
-        .on_window_event(on_window_event);
-
-    builder
+        .on_window_event(on_window_event)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 fn on_window_event(window: &Window, event: &WindowEvent) {
-    match event {
-        WindowEvent::CloseRequested { api, .. } => {
-            api.prevent_close();
-
-            let app_handle = window.app_handle().clone();
-            tauri::async_runtime::spawn(async move {
-                app::close(&app_handle).await.expect("failed to close app");
-                app_handle.exit(0);
-            });
-        }
-        _ => {}
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        api.prevent_close();
+        let app_handle = window.app_handle().clone();
+        tauri::async_runtime::spawn(async move {
+            app::close(&app_handle).await.expect("failed to close app");
+            app_handle.exit(0);
+        });
     }
 }

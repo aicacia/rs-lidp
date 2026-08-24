@@ -7,13 +7,15 @@ import { createStorage } from "@aicacia/svelte-headless";
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
 import { page } from "$app/state";
+import { isTauri } from "@tauri-apps/api/core";
+import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 import { env } from "$env/dynamic/public";
 import { afterSigninRedirect } from "./afterSigninRedirect.svelte";
 import { getOidcClient } from "./oidc.svelte";
 
 const lidpManagementApiUrl = createStorage<string | null>(
     "lidp-management-api-url",
-    env.PUBLIC_LIDP_MANAGEMENT_BASE_URL,
+    (isTauri() ? "lidp://app/lidp-management" : env.PUBLIC_LIDP_MANAGEMENT_BASE_URL) ?? null,
 );
 
 const defaultConfigurationParameters: ConfigurationParameters = {
@@ -44,7 +46,7 @@ const defaultConfigurationParameters: ConfigurationParameters = {
         return lidpManagementApiUrl.item;
     },
     get fetchApi() {
-        return fetch;
+        return isTauri() ? tauriFetch : fetch;
     },
     credentials: "same-origin",
 };

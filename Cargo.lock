@@ -4083,12 +4083,17 @@ dependencies = [
  "axum",
  "db",
  "libsql",
+ "lidp-management-server",
  "lidp-model",
  "lidp-server",
  "lidp-service",
  "log",
+ "rcgen",
+ "rustls 0.23.43",
  "serde",
  "serde_json",
+ "storage-iroh",
+ "storage-service",
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",
@@ -4096,6 +4101,8 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tokio",
+ "tokio-rustls 0.26.4",
  "tower-service",
  "yaml_serde",
 ]
@@ -6931,34 +6938,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "storage"
-version = "0.1.0"
-dependencies = [
- "axum",
- "libsql",
- "lidp-service",
- "log",
- "rcgen",
- "rustls 0.23.43",
- "serde",
- "serde_json",
- "storage-iroh",
- "storage-server",
- "storage-service",
- "tauri",
- "tauri-build",
- "tauri-plugin-deep-link",
- "tauri-plugin-fetch-api",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tokio",
- "tokio-rustls 0.26.4",
- "tower-service",
- "yaml_serde",
-]
 
 [[package]]
 name = "storage-iroh"

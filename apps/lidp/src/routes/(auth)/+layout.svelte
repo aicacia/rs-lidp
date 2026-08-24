@@ -5,6 +5,7 @@
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
   import Users from "@lucide/svelte/icons/users";
+
   import type { Component } from "svelte";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -80,7 +81,7 @@
       {#each links as link (link.path)}
         {@const active = isActive(link.path)}
         <a
-          href={resolve(link.path)}
+          href={link.path}
           class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
                  {active
             ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
