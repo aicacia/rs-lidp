@@ -6,7 +6,12 @@ export type StorageRequest =
     | { type: "sendMessage"; peerId: string; payload: string | Uint8Array }
     | { type: "closeSession"; peerId: string }
     | { type: "readFile"; path: string }
-    | { type: "writeFile"; path: string; content: string };
+    | { type: "writeFile"; path: string; content: string }
+    | { type: "listDir"; path: string }
+    | { type: "createDir"; path: string }
+    | { type: "deletePath"; path: string }
+    | { type: "renamePath"; from: string; to: string }
+    | { type: "existsPath"; path: string };
 
 export type StorageResponse =
     | { ok: true; event?: StorageEvent; payload?: unknown }
@@ -80,6 +85,42 @@ export class PeerSession {
             yield event;
         }
     }
+}
+
+export async function listStorageDir(
+    client: StorageClient,
+    path: string,
+): Promise<string[]> {
+    return client.listDir(path);
+}
+
+export async function createStorageDir(
+    client: StorageClient,
+    path: string,
+): Promise<void> {
+    return client.createDir(path);
+}
+
+export async function deleteStoragePath(
+    client: StorageClient,
+    path: string,
+): Promise<void> {
+    return client.deletePath(path);
+}
+
+export async function renameStoragePath(
+    client: StorageClient,
+    from: string,
+    to: string,
+): Promise<void> {
+    return client.renamePath(from, to);
+}
+
+export async function existsStoragePath(
+    client: StorageClient,
+    path: string,
+): Promise<boolean> {
+    return client.existsPath(path);
 }
 
 export class StorageClient {
@@ -222,6 +263,103 @@ export class StorageClient {
         return this.peerSession(peerId);
     }
 
+    async readFile(path: string): Promise<string> {
+        const response = await this.request<StorageResponse>({
+            type: "readFile",
+            path,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+
+        if (typeof response.payload !== "string") {
+            throw new Error("Expected string payload from readFile");
+        }
+
+        return response.payload;
+    }
+
+    async writeFile(path: string, content: string): Promise<void> {
+        const response = await this.request<StorageResponse>({
+            type: "writeFile",
+            path,
+            content,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+    }
+
+    async listDir(path: string): Promise<string[]> {
+        const response = await this.request<StorageResponse>({
+            type: "listDir",
+            path,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+
+        if (!Array.isArray(response.payload)) {
+            throw new Error("Expected array payload from listDir");
+        }
+
+        return response.payload.map((entry) => String(entry));
+    }
+
+    async createDir(path: string): Promise<void> {
+        const response = await this.request<StorageResponse>({
+            type: "createDir",
+            path,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+    }
+
+    async deletePath(path: string): Promise<void> {
+        const response = await this.request<StorageResponse>({
+            type: "deletePath",
+            path,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+    }
+
+    async renamePath(from: string, to: string): Promise<void> {
+        const response = await this.request<StorageResponse>({
+            type: "renamePath",
+            from,
+            to,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+    }
+
+    async existsPath(path: string): Promise<boolean> {
+        const response = await this.request<StorageResponse>({
+            type: "existsPath",
+            path,
+        });
+
+        if (!response.ok) {
+            throw new Error(response.error);
+        }
+
+        if (typeof response.payload !== "boolean") {
+            throw new Error("Expected boolean payload from existsPath");
+        }
+
+        return response.payload;
+    }
+
     peerSession(peerId: string): PeerSession {
         if (!peerId || !peerId.trim()) {
             throw new Error("peerSession requires a peer id");
@@ -316,20 +454,7 @@ export async function readStorageFile(
     client: StorageClient,
     path: string,
 ): Promise<string> {
-    const response = await client.request<StorageResponse>({
-        type: "readFile",
-        path,
-    });
-
-    if (!response.ok) {
-        throw new Error(response.error);
-    }
-
-    if (typeof response.payload !== "string") {
-        throw new Error("Expected string payload from readFile");
-    }
-
-    return response.payload;
+    return client.readFile(path);
 }
 
 /**
@@ -344,13 +469,5 @@ export async function writeStorageFile(
     path: string,
     content: string,
 ): Promise<void> {
-    const response = await client.request<StorageResponse>({
-        type: "writeFile",
-        path,
-        content,
-    });
-
-    if (!response.ok) {
-        throw new Error(response.error);
-    }
+    return client.writeFile(path, content);
 }

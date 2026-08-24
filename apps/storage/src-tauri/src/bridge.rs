@@ -3,6 +3,7 @@ use std::{
     net::Ipv4Addr,
     path::{Path, PathBuf},
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use axum::{
@@ -12,11 +13,13 @@ use axum::{
     response::{Html, IntoResponse},
     routing::get,
 };
+use lidp_service::oauth2::decode_jwt;
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, Issuer, KeyPair, SanType,
 };
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use storage_iroh::{StorageEvent, StorageIrohRuntime, StorageRequest, StorageResponse};
 use storage_service::StorageService;
 use tokio::net::TcpListener;
@@ -210,6 +213,8 @@ enum BridgeMessage {
         request: StorageRequest,
         #[serde(rename = "requestId")]
         request_id: u64,
+        #[serde(default)]
+        authorization: Option<String>,
     },
     Response {
         #[serde(flatten)]
@@ -257,40 +262,187 @@ pub struct StorageBridge {
     runtime: StorageIrohRuntime,
     storage: Arc<StorageService>,
     url: Arc<tokio::sync::Mutex<String>>,
+    registry: Arc<libsql::Database>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct StorageSessionClaims {
+    sub: String,
+    iss: String,
+    aud: String,
+    exp: i64,
+    nbf: i64,
 }
 
 impl StorageBridge {
     pub fn new(files_dir: PathBuf) -> Self {
-        Self {
+        let registry_path = files_dir.join("known-hosts.sqlite");
+        let registry = tokio::runtime::Handle::current().block_on(async {
+            libsql::Builder::new_local(registry_path.to_string_lossy().as_ref())
+                .build()
+                .await
+                .expect("storage known-host registry should initialize")
+        });
+
+        let registry = Arc::new(registry);
+        let registry_for_init = registry.clone();
+        let _ = tokio::runtime::Handle::current().block_on(async move {
+            let conn = registry_for_init.connect().expect("storage registry connection");
+            let _ = conn
+                .execute(
+                    "CREATE TABLE IF NOT EXISTS known_hosts (host TEXT PRIMARY KEY, created_at INTEGER NOT NULL DEFAULT (unixepoch())) STRICT;",
+                    libsql::params![],
+                )
+                .await;
+            Ok::<(), String>(())
+        });
+
+        let bridge = Self {
             runtime: StorageIrohRuntime::new(),
             storage: Arc::new(StorageService::new(files_dir)),
             url: Arc::new(tokio::sync::Mutex::new(String::new())),
+            registry,
+        };
+
+        let _ = tokio::runtime::Handle::current()
+            .block_on(async { bridge.remember_host(STORAGE_BRIDGE_HOST).await });
+
+        bridge
+    }
+
+    pub async fn remember_host(&self, host: &str) -> Result<(), String> {
+        let host = host.trim();
+        if host.is_empty() {
+            return Ok(());
         }
+
+        let conn = self.registry.connect().map_err(|err| err.to_string())?;
+        conn.execute(
+            "INSERT OR IGNORE INTO known_hosts (host) VALUES (?)",
+            libsql::params![host],
+        )
+        .await
+        .map_err(|err| err.to_string())?;
+
+        Ok(())
+    }
+
+    pub async fn is_host_known(&self, host: &str) -> Result<bool, String> {
+        let host = host.trim();
+        if host.is_empty() {
+            return Ok(false);
+        }
+
+        let conn = self.registry.connect().map_err(|err| err.to_string())?;
+        let mut rows = conn
+            .query(
+                "SELECT 1 FROM known_hosts WHERE host = ? LIMIT 1",
+                libsql::params![host],
+            )
+            .await
+            .map_err(|err| err.to_string())?;
+
+        Ok(rows.next().await.map_err(|err| err.to_string())?.is_some())
+    }
+
+    pub async fn validate_session(
+        &self,
+        host: &str,
+        authorization: Option<&str>,
+    ) -> Result<StorageService, String> {
+        let token = authorization
+            .ok_or_else(|| "missing bearer token".to_string())?
+            .strip_prefix("Bearer ")
+            .ok_or_else(|| "authorization header must use Bearer scheme".to_string())?;
+
+        if !self.is_host_known(host).await? {
+            return Err(format!("unknown host: {host}"));
+        }
+
+        let (_, claims) = decode_jwt::<StorageSessionClaims>(token)
+            .map_err(|error| format!("invalid JWT: {:?}", error))?;
+
+        if claims.iss != host {
+            return Err(format!(
+                "JWT issuer mismatch: expected {host}, got {}",
+                claims.iss
+            ));
+        }
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_secs() as i64;
+
+        if claims.nbf > now {
+            return Err("JWT is not yet valid".to_string());
+        }
+
+        if claims.exp <= now {
+            return Err("JWT has expired".to_string());
+        }
+
+        if claims.sub.trim().is_empty() {
+            return Err("JWT subject is empty".to_string());
+        }
+
+        let session_storage = self
+            .storage
+            .for_session(&claims.sub)
+            .map_err(|error| format!("invalid session root: {error}"))?;
+
+        Ok(session_storage)
     }
 
     pub async fn url(&self) -> String {
         self.url.lock().await.clone()
     }
 
-    pub async fn handle_request(&self, request: StorageRequest) -> Result<StorageResponse, String> {
+    async fn handle_session_request(
+        &self,
+        storage: &StorageService,
+        request: StorageRequest,
+    ) -> Result<StorageResponse, String> {
         log::info!("storage bridge dispatching request: {request:?}");
 
         let result = match request {
             StorageRequest::ReadFile { path } => {
-                let bytes = self
-                    .storage
-                    .read_file(&path)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                let bytes = storage.read_file(&path).await.map_err(|e| e.to_string())?;
                 let content = String::from_utf8(bytes).map_err(|e| e.to_string())?;
                 Ok(StorageResponse::success_payload(content))
             }
             StorageRequest::WriteFile { path, content } => {
-                self.storage
+                storage
                     .write_file(&path, content.as_bytes())
                     .await
                     .map_err(|e| e.to_string())?;
                 Ok(StorageResponse::success_empty())
+            }
+            StorageRequest::ListDir { path } => {
+                let entries = storage.list_dir(&path).await.map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_payload(json!(entries)))
+            }
+            StorageRequest::CreateDir { path } => {
+                storage.create_dir(&path).await.map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_empty())
+            }
+            StorageRequest::DeletePath { path } => {
+                storage
+                    .delete_path(&path)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_empty())
+            }
+            StorageRequest::RenamePath { from, to } => {
+                storage
+                    .rename_path(&from, &to)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_empty())
+            }
+            StorageRequest::ExistsPath { path } => {
+                let exists = storage.exists(&path).await.map_err(|e| e.to_string())?;
+                Ok(StorageResponse::success_payload(json!(exists)))
             }
             other_request => {
                 let event = match other_request {
@@ -324,6 +476,10 @@ impl StorageBridge {
             Err(error) => log::error!("storage bridge request failed: {error}"),
         }
         result
+    }
+
+    pub async fn handle_request(&self, request: StorageRequest) -> Result<StorageResponse, String> {
+        self.handle_session_request(&self.storage, request).await
     }
 
     fn build_server_config(data_dir: &Path) -> Result<Arc<rustls::ServerConfig>, String> {
@@ -404,8 +560,35 @@ impl StorageBridge {
 
                     match serde_json::from_str::<BridgeMessage>(&raw) {
                         Ok(bridge_msg) => match bridge_msg {
-                            BridgeMessage::Request { request, request_id } => {
-                                let response = bridge.handle_request(request).await;
+                            BridgeMessage::Request {
+                                request,
+                                request_id,
+                                authorization,
+                            } => {
+                                let host = STORAGE_BRIDGE_HOST;
+                                let session_storage = match bridge
+                                    .validate_session(host, authorization.as_deref())
+                                    .await
+                                {
+                                    Ok(storage) => storage,
+                                    Err(err) => {
+                                        let response = StorageResponse::error(err);
+                                        let payload = serde_json::to_string(&BridgeMessage::Response {
+                                            response,
+                                            request_id,
+                                        })
+                                        .unwrap_or_else(|_| "{\"ok\":false,\"error\":\"serialization failed\"}".to_string());
+                                        if socket.send(Message::Text(payload.into())).await.is_err() {
+                                            break;
+                                        }
+                                        continue;
+                                    }
+                                };
+
+                                let response = bridge
+                                    .handle_session_request(&session_storage, request)
+                                    .await;
+
                                 let response = match response {
                                     Ok(r) => r,
                                     Err(err) => StorageResponse::error(err),
@@ -471,6 +654,20 @@ pub fn bridge_trust_prompted_path(data_dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn bridge_tracks_known_hosts_in_sqlite_registry() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("storage-host-registry-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        let bridge = StorageBridge::new(temp_dir.join("files"));
+        bridge.remember_host("trusted.example").await.unwrap();
+
+        assert!(bridge.is_host_known("trusted.example").await.unwrap());
+        assert!(!bridge.is_host_known("unknown.example").await.unwrap());
+    }
 
     #[test]
     fn bridge_message_uses_camel_case_request_id() {

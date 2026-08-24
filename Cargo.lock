@@ -6937,6 +6937,8 @@ name = "storage"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "libsql",
+ "lidp-service",
  "log",
  "rcgen",
  "rustls 0.23.43",

@@ -3,6 +3,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::{Mutex, broadcast};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +17,11 @@ pub enum StorageRequest {
     CloseSession { peer_id: String },
     ReadFile { path: String },
     WriteFile { path: String, content: String },
+    ListDir { path: String },
+    CreateDir { path: String },
+    DeletePath { path: String },
+    RenamePath { from: String, to: String },
+    ExistsPath { path: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,14 +46,14 @@ pub struct StorageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event: Option<StorageEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<String>,
+    pub payload: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
 impl StorageResponse {
     /// Creates a successful response with optional event and/or payload.
-    pub fn success(event: Option<StorageEvent>, payload: Option<String>) -> Self {
+    pub fn success(event: Option<StorageEvent>, payload: Option<Value>) -> Self {
         StorageResponse {
             ok: true,
             event,
@@ -57,11 +63,11 @@ impl StorageResponse {
     }
 
     /// Creates a successful response with only a payload.
-    pub fn success_payload(payload: String) -> Self {
+    pub fn success_payload(payload: impl Into<Value>) -> Self {
         StorageResponse {
             ok: true,
             event: None,
-            payload: Some(payload),
+            payload: Some(payload.into()),
             error: None,
         }
     }
@@ -264,6 +270,22 @@ mod tests {
     }
 
     #[test]
+    fn test_storage_request_list_dir_serde() {
+        let request = StorageRequest::ListDir {
+            path: "example".to_string(),
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("\"type\":\"listDir\""));
+        assert!(json.contains("\"path\""));
+
+        let deserialized: StorageRequest = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StorageRequest::ListDir { path } => assert_eq!(path, "example"),
+            _ => panic!("Expected ListDir"),
+        }
+    }
+
+    #[test]
     fn test_storage_response_success_payload() {
         let response = StorageResponse::success_payload("Hello, World!".to_string());
         let json = serde_json::to_string(&response).unwrap();
@@ -277,7 +299,10 @@ mod tests {
 
         let deserialized: StorageResponse = serde_json::from_str(&json).unwrap();
         assert!(deserialized.ok);
-        assert_eq!(deserialized.payload, Some("Hello, World!".to_string()));
+        assert_eq!(
+            deserialized.payload,
+            Some(serde_json::json!("Hello, World!"))
+        );
         assert!(deserialized.event.is_none());
         assert!(deserialized.error.is_none());
     }
