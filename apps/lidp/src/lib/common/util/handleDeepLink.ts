@@ -1,4 +1,5 @@
 import { handleNativeCallbackRequestUrl } from "@aicacia/native-fetch";
+import { env } from "$env/dynamic/public";
 
 import { getStorageBridgeConfig } from "../state/storageClient.svelte";
 import { redirectToUrl } from "./redirectToUrl";
@@ -11,16 +12,10 @@ export async function handleDeepLink(urlStrings: string[]): Promise<void> {
 
     const url = new URL(urlString);
 
-    if (url.pathname !== "/bridge-url") {
-        console.warn(`Unknown deep link: ${urlString}`);
-        return;
-    }
-
-    const bridgeUrlConfig = await getStorageBridgeConfig();
-    const callbackUrl = await handleNativeCallbackRequestUrl(
-        url,
-        () =>
-            new Response(
+    const callbackUrl = await handleNativeCallbackRequestUrl(url, async (request) => {
+        if (url.pathname === "/bridge-url") {
+            const bridgeUrlConfig = await getStorageBridgeConfig();
+            return new Response(
                 JSON.stringify({
                     bridgeUrl: bridgeUrlConfig?.storageBridgeUrl ?? "",
                 }),
@@ -29,8 +24,18 @@ export async function handleDeepLink(urlStrings: string[]): Promise<void> {
                         "content-type": "application/json;charset=UTF-8",
                     },
                 },
-            ),
-    );
+            );
+        }
+
+        const apiUrl = new URL(url.pathname + url.search, env.PUBLIC_LIDP_BASE_URL);
+        return fetch(apiUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.method === "GET" || request.method === "HEAD"
+                ? undefined
+                : await request.arrayBuffer(),
+        });
+    });
 
     await redirectToUrl(callbackUrl);
 }

@@ -8,14 +8,14 @@ import { resolve } from "$app/paths";
 import { page } from "$app/state";
 import { afterSigninRedirect } from "./afterSigninRedirect.svelte";
 import { createStorage } from "@aicacia/svelte-headless";
-import { env } from "$env/dynamic/public";
+
 import { getOidcClient } from "./oidc.svelte";
 import { isTauri } from "@tauri-apps/api/core";
 import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 
 const lidpApiUrl = createStorage<string | null>(
     "lidp-api-url",
-    (isTauri() ? "lidp://app" : env.PUBLIC_LIDP_BASE_URL) ?? null,
+    isTauri() ? "lidp://app" : null,
 );
 let lidpApiIsNative = $derived.by(() => lidpApiUrl.item?.startsWith("lidp:"));
 

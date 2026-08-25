@@ -6,7 +6,6 @@
 	import { getTheme } from '@aicacia/svelte-headless';
 	import favicon from '$lib/assets/favicon.svg';
 	import Notifications from '$lib/common/components/Notifications.svelte';
-	import { loadStorageBridgeConfig } from '$lib/common/state/storageConfig.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -28,7 +27,6 @@
 	onMount(() => {
 		document.body.classList.add('hydrated');
 
-		void loadStorageBridgeConfig();
 	});
 </script>
 

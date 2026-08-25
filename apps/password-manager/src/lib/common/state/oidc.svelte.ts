@@ -1,23 +1,24 @@
+import { nativeFetch } from "@aicacia/native-fetch";
 import { OidcClient } from "@aicacia/oidc-client";
 import { isTauri } from "@tauri-apps/api/core";
 import { env } from "$env/dynamic/public";
 import icon256x256Png from "$lib/assets/icon256x256.png";
 import { getLidpApiUrl } from "./lidpClient.svelte";
-import { fetch as tauriFetch } from "tauri-plugin-fetch-api";
 
 const CLIENT_ID = isTauri() ? "password-manager-desktop" : "password-manager-web";
 
-const oidcClient = $derived.by(
-    () =>
-        new OidcClient({
-            clientConfig: {
-                authority: getLidpApiUrl(),
-                redirectUri: `${env.PUBLIC_URL}/callback`,
+const oidcClient = $derived.by(() => {
+    const authority = getLidpApiUrl();
+
+    return new OidcClient({
+        clientConfig: {
+            authority,
+            redirectUri: `${env.PUBLIC_URL}/callback`,
+            clientId: CLIENT_ID,
+            responseType: "code",
+            registration: {
                 clientId: CLIENT_ID,
-                responseType: "code",
-                registration: {
-                    clientId: CLIENT_ID,
-                    clientName: "Password Manager",
+                clientName: "Password Manager",
                     scope: "openid profile address offline email phone",
                     redirectUris: [`${env.PUBLIC_URL}/callback`],
                     postLogoutRedirectUris: [`${env.PUBLIC_URL}/logout`],
@@ -34,10 +35,10 @@ const oidcClient = $derived.by(
                     refreshTokenExpiry: 604800,
                 },
             },
-            fetch: isTauri() ? tauriFetch : fetch,
+            fetch: authority?.startsWith("lidp:") ? nativeFetch : fetch,
             disableNativeRequests: true,
-        }),
-);
+        });
+});
 
 export function getOidcClient() {
     return oidcClient;
