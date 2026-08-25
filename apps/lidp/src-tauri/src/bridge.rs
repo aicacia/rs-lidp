@@ -81,7 +81,7 @@ pub async fn ensure_storage_bridge_certificate(data_dir: &Path) -> io::Result<Pa
     let ca_pem = ensure_ca_certificate_pem(data_dir, &ca).await?;
     fs::write(&cert_path, ca_pem.as_bytes())?;
     let _server_cert = load_or_create_server_cert(STORAGE_BRIDGE_HOST, data_dir, &ca).await?;
-    let _ = install_ca_to_user_trust_store(data_dir, &cert_path);
+    let _ = install_ca_to_user_trust_store(&cert_path);
 
     Ok(cert_path)
 }

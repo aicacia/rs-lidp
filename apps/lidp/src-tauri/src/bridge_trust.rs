@@ -1,21 +1,12 @@
 use std::{
-    fs, io,
+    io,
     path::Path,
     process::{Command, Stdio},
 };
 
-const TRUST_VERSION: &str = "v3";
-
-pub fn ca_trust_installed_path(data_dir: &Path) -> std::path::PathBuf {
-    data_dir.join("bridge-ca-trusted")
-}
-
-pub fn install_ca_to_user_trust_store(data_dir: &Path, ca_pem_path: &Path) -> io::Result<()> {
-    let installed_path = ca_trust_installed_path(data_dir);
-
+pub fn install_ca_to_user_trust_store(ca_pem_path: &Path) -> io::Result<()> {
     match install_ca_to_user_trust_store_impl(ca_pem_path) {
         Ok(()) => {
-            fs::write(&installed_path, TRUST_VERSION)?;
             log::info!("installed storage bridge CA into the operating system trust store");
             Ok(())
         }
@@ -201,16 +192,5 @@ fn install_ca_in_nss_database(database: &Path, ca_pem_path: &Path) -> io::Result
         Err(io::Error::other(
             "certutil failed to install storage bridge CA",
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ca_trust_installed_path_is_under_data_dir() {
-        let dir = Path::new("/tmp/storage-data");
-        assert_eq!(ca_trust_installed_path(dir), dir.join("bridge-ca-trusted"));
     }
 }

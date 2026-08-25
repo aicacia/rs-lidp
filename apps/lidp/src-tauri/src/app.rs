@@ -22,7 +22,6 @@ use tower_service::Service;
 use crate::bridge::{
     StorageBridge, bridge_trust_prompted_path, bridge_trust_url, ensure_storage_bridge_certificate,
 };
-use crate::bridge_trust::ca_trust_installed_path;
 
 pub fn init_router(app_config: Arc<AppConfig>, database: Arc<Database>) -> io::Result<Router> {
     let key_service = Arc::new(KeyService::new(
@@ -193,14 +192,6 @@ pub async fn open_storage_bridge_trust_page(app_handle: AppHandle) -> Result<(),
 }
 
 async fn prompt_bridge_cert_trust_if_needed(app_handle: AppHandle, data_dir: std::path::PathBuf) {
-    if fs::read_to_string(ca_trust_installed_path(&data_dir))
-        .ok()
-        .as_deref()
-        == Some("v3")
-    {
-        return;
-    }
-
     let prompted_path = bridge_trust_prompted_path(&data_dir);
     for _ in 0..50 {
         let wss_url = bridge_url_for(&app_handle).await;
